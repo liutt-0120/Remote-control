@@ -3,6 +3,9 @@
 #include "pch.h"
 #include "framework.h"
 
+#pragma pack(push)
+#pragma pack(1)
+
 #define MAX_SIZE 4096
 
 class CPacket {
@@ -25,6 +28,29 @@ public:
 		}
 		return *this;
 	}
+
+	/// <summary>
+	/// 封包的构造函数重载
+	/// </summary>
+	/// <param name="nCmd"></param>
+	/// <param name="pData"></param>
+	/// <param name="nSize"></param>
+	CPacket(WORD nCmd,const BYTE* pData,size_t nSize) {
+		sHead = 0xFEFF;
+		nLength = nSize + 2 + 2;
+		sCmd = nCmd;
+		strData.resize(nSize);
+		memcpy((void*)strData.c_str(), pData, nSize);
+		for (int i = 0; i < nSize; ++i) {
+			sSum += strData[i] & 0xFF;
+		}
+	}
+
+	/// <summary>
+	/// 解包的构造函数重载
+	/// </summary>
+	/// <param name="pData">包</param>
+	/// <param name="nSize">接收的信息长度</param>
 	CPacket(const BYTE* pData, size_t& nSize) {
 		size_t i = 0;
 		//查找包头
@@ -68,14 +94,33 @@ public:
 		return;
 	}
 	~CPacket(){}
+
+	int Size() {	//包的大小
+		return nLength + 6;
+	}
+
+	const char* Data() {
+		strOut.resize(nLength + 6);
+		BYTE* pData = (BYTE*)strOut.c_str();
+		*(WORD*)pData = sHead; pData += 2;
+		*(DWORD*)pData = nLength; pData += 4;
+		*(WORD*)pData = sCmd; pData += 2;
+		memcpy(pData, strData.c_str(), strData.size()); pData += strData.size();
+		*(WORD*)pData = sSum;
+		return strOut.c_str();
+	}
+
 public:
 	WORD sHead;		//包头，固定为0xFEFF
 	DWORD nLength;	//长度（从控制命令开始，到和校验结束）
 	WORD sCmd;		//控制命令
 	std::string strData;	//数据
 	WORD sSum;		//和校验
+
+	std::string strOut;	//输出组合起来的整个包数据
 };
 
+#pragma pack(pop)
 
 ///// <summary>
 ///// 方式一：这个类的目的只是项目最初Startup和项目结尾Cleanup套接字环境，而以这种开放的形式是难以保证这个类在项目中不被实例化。
@@ -219,16 +264,14 @@ public:
 		return -1;
 	}
 
-	bool ForSend() {
+	bool Send(const char* pData,int nSize) {
 		if (m_sockCli == -1)return false;
-		char sendBuf[1024] = "";
-		while (true) {
-			int len = send(m_sockCli, sendBuf, sizeof(sendBuf), 0);
-			if (len <= 0) {
-				return false;
-			}
-		}
-		return true;
+		return send(m_sockCli, pData, nSize, 0) > 0;
+	}
+
+	bool Send(CPacket& pack) {		//为何传类类型的引用必须要加const？
+		if (m_sockCli == -1)return false;
+		return send(m_sockCli, pack.Data(), pack.Size(), 0) > 0;
 	}
 private:
 	SOCKET m_sockSrv;
