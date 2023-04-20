@@ -4,7 +4,7 @@
 #include "pch.h"
 #include "framework.h"
 #include "RemoteCtrl.h"
-
+#include "ServerSocket.h"
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -15,6 +15,7 @@
 CWinApp theApp;
 
 using namespace std;
+
 
 int main()
 {
@@ -34,7 +35,31 @@ int main()
         else
         {
             // TODO: 在此处为应用程序的行为编写代码。
-            //Test提交推送
+            CServerSocket* pserver = CServerSocket::getInstance();
+            if (pserver != NULL) {
+                if(pserver->InitSocket()==false){
+                    MessageBox(NULL, _T("网络初始化异常，请检查网络状态"), _T("网络初始化失败"), MB_OK | MB_ICONERROR);
+                    exit(0);
+                }
+            }
+            int count = 0;
+            while (pserver != NULL) {
+                if (pserver->AccpetClient() == false) {
+                    if (count >= 3) {
+                        MessageBox(NULL, _T("多次无法正常接入用户，结束程序！"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
+                        exit(0);
+                    }
+                    MessageBox(NULL, _T("无法正常接入用户，自动重试"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
+                    count++;
+                }
+                else count = 0;
+
+                int ret = pserver->ForRecv();
+                //TODO:
+            }
+
+
+
         }
     }
     else
