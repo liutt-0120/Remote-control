@@ -55,6 +55,100 @@ int MakeDriverInfo() {
     return 0;
 }
 
+#include <io.h>
+#include <list>
+typedef struct FileInfo{
+    FileInfo():isInvalid(false),isDirectory(-1),hasNext(true) {
+        memset(szFileName, 0, sizeof(szFileName));
+    }
+    bool isInvalid;     //是否无效目录/文件：0 否；1 是
+    char szFileName[256];
+    bool isDirectory;   //是否为目录：0 否 ；1 是
+    bool hasNext;       //是否还有后续： 0 没有；1 有
+
+}*PFileInfo;
+
+int MakeDirectoryInfo() {
+    std::string strPath;
+    //std::list<FileInfo> lstFileInfos;     //这块本来计划用list拿了所有文件后统一发送，但鉴于有的文件夹可能包含大量文件，如日志，网页的临时文件等，那处理完所有文件将耗费大量时间，甲方很可能以为卡了忍不住疯狂点击。
+                                            
+    if (CServerSocket::getInstance()->GetFilePath(strPath) == false) {
+        OutputDebugString(_T("当前命令有误，不是获取文件列表"));
+        return -1;
+    }
+    if (_chdir(strPath.c_str()) != 0) {
+        FileInfo fInfo;
+        fInfo.isInvalid = true;
+        fInfo.isDirectory = true;
+        memcpy(fInfo.szFileName, strPath.c_str(), strPath.size());
+        //lstFileInfos.push_back(fInfo);
+        CPacket pack(2, (BYTE*)&fInfo, sizeof(fInfo));
+        CServerSocket::getInstance()->Send(pack);
+        OutputDebugString(_T("没有访问目录的权限"));
+        return -2;
+    }
+    _finddata_t fdata;
+    int hfind = 0;
+    if ((hfind = _findfirst("*", &fdata)) == -1) {
+        OutputDebugString(_T("没有找到任何文件"));
+        return -3;
+    }
+    do {
+        FileInfo fInfo;
+        fInfo.isDirectory = (fdata.attrib & _A_SUBDIR) != 0;
+        memcpy(fInfo.szFileName, fdata.name, strlen(fdata.name));
+        //lstFileInfos.push_back(fInfo);
+        CPacket pack(2, (BYTE*)&fInfo, sizeof(fInfo));
+        CServerSocket::getInstance()->Send(pack);       //现计划处理一个就发一个
+    } while (!_findnext(hfind, &fdata));
+    
+    FileInfo fInfo;         //这感觉可以一个函数都用这一个FileInfo啊？♥
+    fInfo.hasNext = false;
+    CPacket pack(2, (BYTE*)&fInfo, sizeof(fInfo));
+    CServerSocket::getInstance()->Send(pack);
+
+    return 0;
+}
+
+int RunFile() {
+    std::string strPath;
+    CServerSocket::getInstance()->GetFilePath(strPath);
+    ShellExecuteA(NULL, NULL, strPath.c_str(), NULL, NULL, SW_SHOWNORMAL);
+    return 0;
+}
+
+int DownloadFile() {
+    std::string strPath;
+    CServerSocket::getInstance()->GetFilePath(strPath);
+    long long data = 0;
+    FILE* pFile = NULL;
+    errno_t err = fopen_s(&pFile, strPath.c_str(), "rb"); //在客户端那边叫下载，在服务端这块叫（本地）上传、发送，因此是读文件。不知道客户端要下载哪类文件，按二进制方式读。
+    if (err != 0) {
+        CPacket pack(4, (BYTE*)&data, 8);
+        CServerSocket::getInstance()->Send(pack);
+        return -1;
+    }
+    if (pFile != NULL) {
+        fseek(pFile, 0, SEEK_END);  //SEEK_END文件结尾
+        data = _ftelli64(pFile);
+        CPacket fLenPack(4, (BYTE*)&data, 8);   //先把获取到的文件大小发过去
+        fseek(pFile, 0, SEEK_SET);  //SEEK_SET文件开头
+
+        char buffer[1024] = ""; //不超过1K，避免被截断
+        size_t rlen = 0;
+        do {
+            rlen = fread(buffer, 1, 1024, pFile);
+            CPacket pack(4, (BYTE*)buffer, rlen);
+            CServerSocket::getInstance()->Send(pack);   //读1K发一次
+        } while (rlen >= 1024);
+        fclose(pFile);      //有开有关
+    }
+    
+    CPacket pack(4, NULL, 0);
+    CServerSocket::getInstance()->Send(pack);
+    return 0;
+}
+
 int main()
 {
     int nRetCode = 0;
@@ -100,6 +194,15 @@ int main()
             {
             case 1:     //查看磁盘分区
                 MakeDriverInfo();
+                break;
+            case 2:
+                MakeDirectoryInfo();
+                break;
+            case 3:
+                RunFile();
+                break;
+            case 4:
+                DownloadFile();
                 break;
             default:
                 break;
