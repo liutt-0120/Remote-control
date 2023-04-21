@@ -6,6 +6,7 @@
 #include "RemoteCtrl.h"
 #include "ServerSocket.h"
 #include <direct.h>
+#include <atlimage.h>
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -149,6 +150,143 @@ int DownloadFile() {
     return 0;
 }
 
+int MouseEvent() {
+    MouseEv mouse;
+    if (CServerSocket::getInstance()->GetMouseEvent(mouse)) {
+
+        DWORD nFlags = 0;
+        switch (mouse.nButton) {
+        case 0:         //左键
+            nFlags = 1; //0000 0001
+            break;
+        case 1:         //右键
+            nFlags = 2; //0000 0010
+            break;
+        case 2:         //中键
+            nFlags = 4; //0000 0100
+            break;
+        case 3:         //没有按键
+            nFlags = 8; //0000 1000
+        }
+        if (nFlags != 8) {
+            SetCursorPos(mouse.ptXY.x, mouse.ptXY.y);
+        }
+        switch (mouse.nAction) {
+        case 0:             //单击
+            nFlags |= 0x10; //？ | 0001 0000
+            break;
+        case 1:             //双击
+            nFlags |= 0x20; //？ | 0010 0000
+            break;
+        case 2:             //按下
+            nFlags |= 0x40; //？ | 0100 0000
+            break;
+        case 3:             //放开
+            nFlags |= 0x80; //？ | 1000 0000
+            break;
+        default:
+            break;
+        }
+
+        switch (nFlags) {
+        case 0x21:  //左键双击 0010 0001
+            mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, GetMessageExtraInfo());
+            mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, GetMessageExtraInfo());
+        case 0x11:  //左键单击 0001 0001
+            mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, GetMessageExtraInfo());
+            mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, GetMessageExtraInfo());
+            break;
+        case 0x41:  //左键按下 0100 0001
+            mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, GetMessageExtraInfo());
+            break;
+        case 0x81:  //左键放开 1000 0001
+            mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, GetMessageExtraInfo());
+            break;
+        case 0x22:  //右键双击 0010 0010
+            mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, GetMessageExtraInfo());
+            mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, GetMessageExtraInfo());
+        case 0x12:  //右键单击 0001 0010
+            mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, GetMessageExtraInfo());
+            mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, GetMessageExtraInfo());
+            break;
+        case 0x42:  //右键按下 0100 0010
+            mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, GetMessageExtraInfo());
+            break;
+        case 0x82:  //右键放开 1000 0010
+            mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, GetMessageExtraInfo());
+            break;
+        case 0x23:  //中键双击 0010 0100
+            mouse_event(MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, GetMessageExtraInfo());
+            mouse_event(MOUSEEVENTF_MIDDLEUP, 0, 0, 0, GetMessageExtraInfo());
+        case 0x13:  //中键单击 0001 0100
+            mouse_event(MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, GetMessageExtraInfo());
+            mouse_event(MOUSEEVENTF_MIDDLEUP, 0, 0, 0, GetMessageExtraInfo());
+            break;
+        case 0x43:  //中键按下 0100 0100
+            mouse_event(MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, GetMessageExtraInfo());
+            break;
+        case 0x83:  //中键放开 1000 0100
+            mouse_event(MOUSEEVENTF_MIDDLEUP, 0, 0, 0, GetMessageExtraInfo());
+            break;
+        case 0x08:  //鼠标移动 0000 1000
+            mouse_event(MOUSEEVENTF_MOVE, mouse.ptXY.x, mouse.ptXY.y, 0, GetMessageExtraInfo());
+            break;
+        }
+        CPacket pack(4, NULL, 0);
+        CServerSocket::getInstance()->Send(pack);   //知会对面一声收到了
+    }
+    else {
+        OutputDebugString(_T("获取鼠标操作失败！"));
+        return -1;
+    }
+    return 0;
+}
+
+int SendScreen() {
+    CImage screen;
+    HDC hScreen = GetDC(NULL);                              // 获取设备上下文
+    int nBitPerPixel = GetDeviceCaps(hScreen, BITSPIXEL);   // 获取像素位宽
+    int nWidth = GetDeviceCaps(hScreen, HORZRES);           // 获取水平宽度（像素）
+    int nHeight = GetDeviceCaps(hScreen, VERTRES);          // 获取垂直高度（像素）
+    screen.Create(nWidth, nHeight, nBitPerPixel);           // 按显示器参数创建图像
+    BitBlt(screen.GetDC(), 0, 0, 1920, 1080, hScreen, 0, 0, SRCCOPY);   //图像复制到screen中
+    ReleaseDC(NULL, hScreen);                               // 完成任务，拜拜吧
+
+    //// 瞅瞅图品质如何 ------- test start-------------------
+    //DWORD tick = GetTickCount64();    //考虑使用“GetTickCount64”而不是“GetTickCount”。原因 : GetTickCount overflows roughly every 49 days.Code that does not take that into account can loop indefinitely.GetTickCount64 operates on 64 bit values and does not have that problem	RemoteCtrl
+    //screen.Save(_T("test.png"), Gdiplus::ImageFormatPNG);
+    //TRACE("png %d\n", GetTickCount64() - tick);
+    //tick = GetTickCount64();
+    //screen.Save(_T("test.jpg"), Gdiplus::ImageFormatJPEG);
+    //TRACE("jpg %d\n", GetTickCount64() - tick);
+    //tick = GetTickCount64();
+    //screen.Save(_T("test.tiff"), Gdiplus::ImageFormatTIFF);
+    //TRACE("tiff %d\n", GetTickCount64() - tick);
+    //// ---------------------- test end---------------------
+
+    //截图导入内存 F12一下screen.Save，可以用IStream那个重载来把图放到内存里
+    HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);   //从堆分配指定的字节数
+    if (hMem == NULL)return -1;
+    IStream* pStream = NULL;
+    HRESULT ret = CreateStreamOnHGlobal(hMem, TRUE, &pStream);    // 创建一个流对象，使用 HGLOBAL 内存句柄存储流内容
+    if (ret == S_OK) {
+        screen.Save(pStream, Gdiplus::ImageFormatPNG);
+        LARGE_INTEGER bg = { 0 };
+        pStream->Seek(bg, STREAM_SEEK_SET, NULL);    //将指针移回指向截图数据开头
+        PBYTE pData = (PBYTE)GlobalLock(hMem);
+        SIZE_T nSize = GlobalSize(hMem);
+        CPacket pack(6, pData, nSize);
+        CServerSocket::getInstance()->Send(pack);
+        GlobalUnlock(hMem);
+    }
+    pStream->Release();
+    GlobalFree(hMem);
+    screen.ReleaseDC();
+    return 0;
+
+}
+
+
 int main()
 {
     int nRetCode = 0;
@@ -189,7 +327,7 @@ int main()
             //    //TODO:
             //}
 
-            int nCmd = 1;
+            int nCmd = 6;
             switch (nCmd)
             {
             case 1:     //查看磁盘分区
@@ -203,6 +341,12 @@ int main()
                 break;
             case 4:
                 DownloadFile();
+                break;
+            case 5:
+                MouseEvent();
+                break;
+            case 6:
+                SendScreen();
                 break;
             default:
                 break;

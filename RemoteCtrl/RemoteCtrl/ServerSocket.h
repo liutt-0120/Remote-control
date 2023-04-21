@@ -154,7 +154,6 @@ public:
 //-----------------------------------------------------------------------------------------
 //确保唯一性就要使用单例模式：使类的一个对象成为系统中的唯一实例
 //-----------------------------------------------------------------------------------------
-
 ///// <summary>
 ///// 方式二：
 ///// 构造函数私有化，避免被创建实例
@@ -207,6 +206,17 @@ public:
 * 利用这个特征，可以在单例类中定义一个这样的静态成员，它的唯一工作就是在析构函数中删除单例类的实例。
 * //https://blog.csdn.net/realxie/article/details/7090493
 */
+
+typedef struct MouseEvent{
+	MouseEvent():nAction(0),nButton(-1){
+		ptXY.x = 0;
+		ptXY.y = 0;
+	}
+	WORD nAction;	//动作：点击、双击、移动、拖动...
+	WORD nButton;	//左键(0)、右键(1)、中键(2)
+	POINT ptXY;		//坐标
+}MouseEv,*PMouseEv;
+
 class CServerSocket {
 public:
 	static CServerSocket* getInstance() {
@@ -281,6 +291,15 @@ public:
 		}
 		return false;
 	}
+
+	bool GetMouseEvent(MouseEv& mouse) {
+		if (m_packet.sCmd == 5) {
+			memcpy(&mouse, m_packet.strData.c_str(), sizeof(MouseEv));
+			return true;
+		}
+		return false;
+	}
+
 private:
 	SOCKET m_sockSrv;
 	SOCKET m_sockCli;
