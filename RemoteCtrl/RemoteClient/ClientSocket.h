@@ -38,7 +38,7 @@ public:
 	/// <param name="nCmd"></param>
 	/// <param name="pData"></param>
 	/// <param name="nSize"></param>
-	CPacket(WORD nCmd, const BYTE* pData, size_t nSize) :sHead(0), nLength(0), sCmd(0), sSum(0) {
+	CPacket(WORD nCmd, const BYTE* pData, size_t nSize) :CPacket() {
 		sHead = 0xFEFF;
 		nLength = nSize + 2 + 2;
 		sCmd = nCmd;
@@ -55,7 +55,7 @@ public:
 	/// </summary>
 	/// <param name="pData">包</param>
 	/// <param name="nSize">接收的信息长度</param>
-	CPacket(const BYTE* pData, size_t& nSize) {
+	CPacket(const BYTE* pData, size_t& nSize):CPacket() {
 		size_t i = 0;
 		//查找包头
 		for (; i < nSize; ++i) {
@@ -160,15 +160,17 @@ public:
 	}
 
 	//socket相关函数
-	bool InitSocket(const std::string& strIpAddr) {
+	bool InitSocket(int nIP,int nPort) {
 		if (m_sockSrv != INVALID_SOCKET) CloseSocket();
 		m_sockSrv = socket(PF_INET, SOCK_STREAM, 0);
 		if (m_sockSrv == -1)return false;
 
 		SOCKADDR_IN addrSrv;
-		addrSrv.sin_addr.S_un.S_addr = inet_addr(strIpAddr.c_str());
+		//addrSrv.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");
+		TRACE("addr:%08x , ip:%08x\r\n", inet_addr("127.0.0.1"), nIP);	//addr:0100007f , ip:7f000001
+		addrSrv.sin_addr.S_un.S_addr = htonl(nIP);	//The htonl function converts a u_long from host to TCP/IP network byte order (which is big-endian).
 		addrSrv.sin_family = AF_INET;
-		addrSrv.sin_port = htons(9527);
+		addrSrv.sin_port = htons(nPort);
 		if (addrSrv.sin_addr.S_un.S_addr == INADDR_NONE) {
 			AfxMessageBox("指定的IP地址不存在");	//mfc
 			return false;

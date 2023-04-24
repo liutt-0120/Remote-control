@@ -35,7 +35,7 @@ public:
 	/// <param name="nCmd"></param>
 	/// <param name="pData"></param>
 	/// <param name="nSize"></param>
-	CPacket(WORD nCmd,const BYTE* pData,size_t nSize) {
+	CPacket(WORD nCmd,const BYTE* pData,size_t nSize):CPacket() {
 		sHead = 0xFEFF;
 		nLength = nSize + 2 + 2;
 		sCmd = nCmd;
@@ -51,7 +51,7 @@ public:
 	/// </summary>
 	/// <param name="pData">包</param>
 	/// <param name="nSize">接收的信息长度</param>
-	CPacket(const BYTE* pData, size_t& nSize) {
+	CPacket(const BYTE* pData, size_t& nSize):CPacket() {
 		size_t i = 0;
 		//查找包头
 		for (; i < nSize; ++i) {

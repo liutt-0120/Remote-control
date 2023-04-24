@@ -43,7 +43,7 @@ int MakeDriverInfo() {
     for (int i = 1; i <= 26; ++i) {
         if (_chdrive(i) == 0) {
             if (result.size() > 0)
-                result += ',';      //tip，骚
+                result += ',';      //tip 骚
             result += 'A' + i - 1;
         }
     }
@@ -52,7 +52,7 @@ int MakeDriverInfo() {
     //现使用Data()整理包数据
     Dump((BYTE*)pack.Data(), pack.Size());
     //CServerSocket::getInstance()->Send(CPacket(1, (BYTE*)result.c_str(), result.size()));   //这个报错很正常啊居然在这疑惑半天，这是个临时变量，引用肯定不能绑定这
-    //CServerSocket::getInstance()->Send(pack);                                               // 这感觉也很危险，把个局部变量给引用
+    CServerSocket::getInstance()->Send(pack);
     return 0;
 }
 
