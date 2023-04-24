@@ -286,6 +286,131 @@ int SendScreen() {
 
 }
 
+#include "LockDialog.h"
+CLockDialog dlg;
+unsigned threadId = 0;
+unsigned WINAPI LockScreenByThread(void* arg) {
+    TRACE("%s(%d),threadId = %d\r\n", __FUNCTION__, __LINE__, GetCurrentThreadId());
+    dlg.Create(IDD_DLG_INFO, NULL);
+    dlg.ShowWindow(SW_SHOW);
+    //覆盖全屏开始~~~👇
+    CRect rect;
+    rect.left = 0;
+    rect.top = 0;
+    rect.right = GetSystemMetrics(SM_CXFULLSCREEN);     //获取当前设备满屏的最大横坐标
+    rect.bottom = GetSystemMetrics(SM_CYFULLSCREEN)*1.03;    //获取当前设备满屏的最大纵坐标
+    dlg.MoveWindow(rect);
+    //设置窗口置顶👇
+    dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE); //AppMsg - Warning: calling DestroyWindow in CDialog::~CDialog --
+                                                                            //AppMsg - OnDestroy or PostNcDestroy in derived class will not be called
+                                                                            //因为非模态对话框不存在阻塞，方法一出就歇逼了，这就提示我们没有destroy
+    ShowCursor(false);      //限制鼠标功能
+    ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_HIDE);   //隐藏任务栏
+    //dlg.GetWindowRect(rect); 
+    ClipCursor(rect);       //限制鼠标活动范围
+                            //双管齐下，把鼠标限制到dlg内，再限制功能                                                        
+    
+    MSG msg;                //dialog一闪而过：mfc是基于消息循环的，本项目里并没有消息循环，因此要自定义一个消息循环以满足需求
+    while (GetMessage(&msg, dlg.m_hWnd, 0, 0)) {
+        TranslateMessage(&msg);
+        LRESULT ret = DispatchMessage(&msg);
+        //测试键入结束锁机
+        if (msg.message == WM_KEYDOWN) {
+            TRACE("msg:%08X wParam:%08x lParam:%08x\r\n", msg.message, msg.wParam, msg.lParam);
+            if (msg.wParam == VK_SPACE) {
+                TRACE(_T("触发空格"));
+            }
+
+            if(msg.wParam == VK_ESCAPE)  //ESC
+                break; 
+        }
+    }
+    ShowCursor(true);
+    ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_SHOW);   //显示任务栏
+    dlg.DestroyWindow();
+
+    //_endthread();
+    _endthreadex(0);
+    return 0;
+}
+
+int LockMachine() {
+
+    if (dlg.m_hWnd == NULL || dlg.m_hWnd == INVALID_HANDLE_VALUE) {
+        //_beginthread(LockScreenByThread, 0, NULL);
+        _beginthreadex(NULL, 0, LockScreenByThread, NULL, 0, &threadId);
+        TRACE("threadId = %d\r\n", threadId);
+    }
+    CPacket pack(7, NULL, 0);
+    CServerSocket::getInstance()->Send(pack);
+    return 0;
+}
+
+int UnLockMachine() {
+    PostThreadMessage(threadId, WM_KEYDOWN, 0x1b, 0);
+    MessageBox(NULL,_T("已解除锁机！"),_T("解锁提示"), MB_ICONASTERISK);
+    CPacket pack(8, NULL, 0);
+    CServerSocket::getInstance()->Send(pack);
+    return 0;
+}
+
+int TestConnect() {
+    CPacket pack(95, NULL, 0);
+    bool ret = CServerSocket::getInstance()->Send(pack);
+    return 0;
+}
+
+int ExcuteCommand(int nCmd) {
+    int ret;
+    switch (nCmd)
+    {
+    case 1:     //查看磁盘分区
+        ret = MakeDriverInfo();
+        break;
+    case 2:
+        ret = MakeDirectoryInfo();
+        break;
+    case 3:
+        ret = RunFile();
+        break;
+    case 4:
+        ret = DownloadFile();
+        break;
+    case 5:
+        ret = MouseEvent();
+        break;
+    case 6:
+        ret = SendScreen();
+        break;
+    case 7:
+        ret = LockMachine();
+        //Sleep(500);
+        //LockMachine();    //验证多次发出锁屏指令不会重复锁屏
+        break;
+    case 8:
+        ret = UnLockMachine();
+    case 95:
+        ret = TestConnect();
+        break;
+    default:
+        ret = -1;
+        break;
+    }
+
+    ////解锁测试
+    //Sleep(1000);
+    //UnLockMachine();
+
+    //2023.4.23打包放在函数里就不用担心下面这个问题
+    ////限制在dlg关闭前不要结束程序，否则dlg析构会报错---start----------
+    //while (dlg.m_hWnd != NULL && dlg.m_hWnd != INVALID_HANDLE_VALUE) {
+    //    Sleep(1000);
+    //    //TRACE("m_hWnd = % 08x\r\n", dlg.m_hWnd);
+    //}
+    ////TRACE("m_hWnd = % 08x\r\n", dlg.m_hWnd);
+    ////限制在dlg关闭前不要结束程序，否则dlg析构会报错---end------------
+    return ret;
+}
 
 int main()
 {
@@ -304,55 +429,35 @@ int main()
         }
         else
         {
-            //// TODO: 在此处为应用程序的行为编写代码。
-            //CServerSocket* pserver = CServerSocket::getInstance();
-            //if (pserver != NULL) {
-            //    if(pserver->InitSocket()==false){
-            //        MessageBox(NULL, _T("网络初始化异常，请检查网络状态"), _T("网络初始化失败"), MB_OK | MB_ICONERROR);
-            //        exit(0);
-            //    }
-            //}
-            //int count = 0;
-            //while (pserver != NULL) {
-            //    if (pserver->AccpetClient() == false) {
-            //        if (count >= 3) {
-            //            MessageBox(NULL, _T("多次无法正常接入用户，结束程序！"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
-            //            exit(0);
-            //        }
-            //        MessageBox(NULL, _T("无法正常接入用户，自动重试"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
-            //        count++;
-            //    }
-            //    else count = 0;
-            //    int ret = pserver->DealCommand();
-            //    //TODO:
-            //}
-
-            int nCmd = 6;
-            switch (nCmd)
-            {
-            case 1:     //查看磁盘分区
-                MakeDriverInfo();
-                break;
-            case 2:
-                MakeDirectoryInfo();
-                break;
-            case 3:
-                RunFile();
-                break;
-            case 4:
-                DownloadFile();
-                break;
-            case 5:
-                MouseEvent();
-                break;
-            case 6:
-                SendScreen();
-                break;
-            default:
-                break;
+            // TODO: 在此处为应用程序的行为编写代码。
+            CServerSocket* pserver = CServerSocket::getInstance();
+            if (pserver != NULL) {
+                if(pserver->InitSocket()==false){
+                    MessageBox(NULL, _T("网络初始化异常，请检查网络状态"), _T("网络初始化失败"), MB_OK | MB_ICONERROR);
+                    exit(0);
+                }
             }
-
-
+            int count = 0;
+            while (pserver != NULL) {
+                if (pserver->AccpetClient() == false) {
+                    if (count >= 3) {
+                        MessageBox(NULL, _T("多次无法正常接入用户，结束程序！"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
+                        exit(0);
+                    }
+                    MessageBox(NULL, _T("无法正常接入用户，自动重试"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
+                    count++;
+                }
+                else count = 0;
+                int ret = pserver->DealCommand();
+                TRACE("DealCommand ret:%d\r\n", ret);
+                if (ret> 0) {
+                    ret = ExcuteCommand(ret);
+                    if (ret != 0) {
+                        TRACE("执行命令失败：%d ret = %d\r\n", pserver->GetPacket().sCmd, ret);
+                    }
+                    pserver->CloseClient(); //短连接方式
+                }
+            }
         }
     }
     else

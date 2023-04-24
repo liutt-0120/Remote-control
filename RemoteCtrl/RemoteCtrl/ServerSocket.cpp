@@ -10,3 +10,4 @@ CServerSocket* CServerSocket::m_instance = NULL;
 
 
 CServerSocket::CGarbo CServerSocket::garbo;		//临了临了，帮忙把静态指针delete了
+
