@@ -4,6 +4,11 @@
 
 #pragma once
 #include "ClientSocket.h"
+#include "StatusDlg.h"
+
+#define WM_SEND_PACKET (WM_USER+1)
+#define WM_SEND_PROGRESS (WM_USER+2)
+
 // CRemoteClientDlg 对话框
 class CRemoteClientDlg : public CDialogEx
 {
@@ -16,7 +21,13 @@ public:
 	enum { IDD = IDD_REMOTECLIENT_DIALOG };
 #endif
 private:
-	int SendCommandPacket(int nCmd, BYTE* pData = NULL, size_t nLength = 0);
+	int SendCommandPacket(int nCmd,bool bAutoClose = true, BYTE* pData = NULL, size_t nLength = 0);
+	CString CRemoteClientDlg::GetPath(HTREEITEM hTree);
+	void DeleteTreeChildrenItem(HTREEITEM hTreeSelected);
+	void LoadFileInfo();
+	void LoadFileCurrent();
+	static void ThreadForDownloadFile(void*);
+	void DownloadFile();
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 
@@ -24,7 +35,7 @@ private:
 // 实现
 protected:
 	HICON m_hIcon;
-
+	CStatusDlg m_statusDlg;
 	// 生成的消息映射函数
 	virtual BOOL OnInitDialog();
 	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
@@ -39,4 +50,15 @@ public:
 	CString m_port;
 	afx_msg void OnBnClickedBtnFileinfo();
 	CTreeCtrl m_tree;
+	afx_msg void OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnNMClickTreeDir(NMHDR* pNMHDR, LRESULT* pResult);
+	// 显示文件
+	CListCtrl m_list;
+	afx_msg void OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnOpenfile();
+	afx_msg void OnDownloadfile();
+	afx_msg void OnDeletefile();
+	afx_msg LRESULT OnSendPacket(WPARAM wParam,LPARAM lParam);
+	afx_msg LRESULT OnSendProgress(WPARAM wParam, LPARAM lParam);
+
 };

@@ -58,16 +58,7 @@ int MakeDriverInfo() {
 
 #include <io.h>
 #include <list>
-typedef struct FileInfo{
-    FileInfo():isInvalid(false),isDirectory(-1),hasNext(true) {
-        memset(szFileName, 0, sizeof(szFileName));
-    }
-    bool isInvalid;     //是否无效目录/文件：0 否；1 是
-    char szFileName[256];
-    bool isDirectory;   //是否为目录：0 否 ；1 是
-    bool hasNext;       //是否还有后续： 0 没有；1 有
 
-}*PFileInfo;
 
 int MakeDirectoryInfo() {
     std::string strPath;
@@ -79,9 +70,7 @@ int MakeDirectoryInfo() {
     }
     if (_chdir(strPath.c_str()) != 0) {
         FileInfo fInfo;
-        fInfo.isInvalid = true;
-        fInfo.isDirectory = true;
-        memcpy(fInfo.szFileName, strPath.c_str(), strPath.size());
+        fInfo.hasNext = false;
         //lstFileInfos.push_back(fInfo);
         CPacket pack(2, (BYTE*)&fInfo, sizeof(fInfo));
         CServerSocket::getInstance()->Send(pack);
@@ -92,6 +81,10 @@ int MakeDirectoryInfo() {
     int hfind = 0;
     if ((hfind = _findfirst("*", &fdata)) == -1) {
         OutputDebugString(_T("没有找到任何文件"));
+        FileInfo fInfo;
+        fInfo.hasNext = false;
+        CPacket pack(2, (BYTE*)&fInfo, sizeof(fInfo));
+        CServerSocket::getInstance()->Send(pack);
         return -3;
     }
     do {
@@ -99,6 +92,7 @@ int MakeDirectoryInfo() {
         fInfo.isDirectory = (fdata.attrib & _A_SUBDIR) != 0;
         memcpy(fInfo.szFileName, fdata.name, strlen(fdata.name));
         //lstFileInfos.push_back(fInfo);
+        TRACE("%s\r\n", fInfo.szFileName);
         CPacket pack(2, (BYTE*)&fInfo, sizeof(fInfo));
         CServerSocket::getInstance()->Send(pack);       //现计划处理一个就发一个
     } while (!_findnext(hfind, &fdata));
@@ -115,6 +109,8 @@ int RunFile() {
     std::string strPath;
     CServerSocket::getInstance()->GetFilePath(strPath);
     ShellExecuteA(NULL, NULL, strPath.c_str(), NULL, NULL, SW_SHOWNORMAL);
+    CPacket pack(3, NULL, 0);
+    CServerSocket::getInstance()->Send(pack);
     return 0;
 }
 
@@ -133,6 +129,7 @@ int DownloadFile() {
         fseek(pFile, 0, SEEK_END);  //SEEK_END文件结尾
         data = _ftelli64(pFile);
         CPacket fLenPack(4, (BYTE*)&data, 8);   //先把获取到的文件大小发过去
+        CServerSocket::getInstance()->Send(fLenPack);
         fseek(pFile, 0, SEEK_SET);  //SEEK_SET文件开头
 
         char buffer[1024] = ""; //不超过1K，避免被截断
@@ -354,6 +351,26 @@ int UnLockMachine() {
     return 0;
 }
 
+int DeleteLocalFile() {
+    std::string strPath;
+    CServerSocket::getInstance()->GetFilePath(strPath);
+    TCHAR sPath[MAX_PATH] = _T("");
+    //mbstowcs(sPath, strPath.c_str(), strPath.size());   //将多字节字符序列转换为对应的宽字符序列 waring:_CRT_SECURE_NO_WARNINGS
+    //中文乱码👆，改用DeleteFileA()可，亦可改用👇
+    MultiByteToWideChar(CP_ACP, 0, strPath.c_str(), strPath.size(), sPath, sizeof(sPath) / sizeof(TCHAR));  //将字符串映射到 UTF-16 (宽字符) 字符串
+    SetFileAttributes(sPath, FILE_ATTRIBUTE_NORMAL);    //设定文件为一般属性（去掉只读属性）
+    BOOL bRet = DeleteFile(sPath);
+    if (bRet == 0) {
+        TRACE("err no = %d\r\n", GetLastError());
+        AfxMessageBox(_T("删除失败！"));
+        return -1;
+    }
+    CPacket pack(9, NULL, 0);
+    CServerSocket::getInstance()->Send(pack);
+    return 0;
+
+}
+
 int TestConnect() {
     CPacket pack(95, NULL, 0);
     bool ret = CServerSocket::getInstance()->Send(pack);
@@ -389,6 +406,9 @@ int ExcuteCommand(int nCmd) {
         break;
     case 8:
         ret = UnLockMachine();
+    case 9:
+        ret = DeleteLocalFile();
+        break;
     case 95:
         ret = TestConnect();
         break;

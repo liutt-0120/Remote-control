@@ -102,14 +102,6 @@ public:
 	}
 
 	const char* Data() {
-		//strOut.resize(nLength + 6);
-		//BYTE* pData = (BYTE*)strOut.c_str();
-		//*(WORD*)pData = sHead; pData += 2;
-		//*(DWORD*)pData = nLength; pData += 4;
-		//*(WORD*)pData = sCmd; pData += 2;
-		//memcpy(pData, strData.c_str(), strData.size()); pData += strData.size();
-		//*(WORD*)pData = sSum;
-		//return strOut.c_str();
 		strOut.resize(nLength + 6);
 		BYTE* pData = (BYTE*)strOut.c_str();
 		*(WORD*)pData = sHead; pData += 2;
@@ -226,7 +218,16 @@ typedef struct MouseEvent{
 	WORD nButton;	//左键(0)、右键(1)、中键(2)
 	POINT ptXY;		//坐标
 }MouseEv,*PMouseEv;
+typedef struct FileInfo {
+	FileInfo() :isInvalid(false), isDirectory(-1), hasNext(true) {
+		memset(szFileName, 0, sizeof(szFileName));
+	}
+	bool isInvalid;     //是否无效目录/文件：0 否；1 是
+	char szFileName[256];
+	bool isDirectory;   //是否为目录：0 否 ；1 是
+	bool hasNext;       //是否还有后续： 0 没有；1 有
 
+}*PFileInfo;
 class CServerSocket {
 public:
 	static CServerSocket* getInstance() {
@@ -299,11 +300,12 @@ public:
 
 	bool Send(CPacket& pack) {		//为何传类类型的引用必须要加const？
 		if (m_sockCli == -1)return false;
+		TRACE("send file:%s\r\n", pack.strData.c_str());	
 		return send(m_sockCli, pack.Data(), pack.Size(), 0) > 0;
 	}
 
 	bool GetFilePath(std::string& strPath) {
-		if ((m_packet.sCmd >= 2)&&(m_packet.sCmd <= 4)) {
+		if ((m_packet.sCmd >= 2)&&(m_packet.sCmd <= 4)||(m_packet.sCmd == 9)) {
 			strPath = m_packet.strData;
 			return true;
 		}

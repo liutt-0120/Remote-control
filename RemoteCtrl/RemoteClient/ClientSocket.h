@@ -83,6 +83,7 @@ public:
 			//获取数据
 			strData.resize(nLength - 2 - 2);
 			memcpy((void*)strData.c_str(), pData + i, nLength - 4);	//将包内数据传给strData
+			TRACE("%s\r\n", strData.c_str());
 			i += nLength - 4;
 		}
 
@@ -139,6 +140,16 @@ typedef struct MouseEvent {
 	POINT ptXY;		//坐标
 }MouseEv, * PMouseEv;
 
+typedef struct FileInfo {
+	FileInfo() :isInvalid(false), isDirectory(-1), hasNext(true) {
+		memset(szFileName, 0, sizeof(szFileName));
+	}
+	bool isInvalid;     //是否无效目录/文件：0 否；1 是
+	char szFileName[256];
+	bool isDirectory;   //是否为目录：0 否 ；1 是
+	bool hasNext;       //是否还有后续： 0 没有；1 有
+
+}*PFileInfo;
 
 /// <summary>
 /// 一个错误代码解析方法
@@ -188,15 +199,16 @@ public:
 		//char recvbuf[1024] = "";
 		//char* recvBuf = new char[MAX_SIZE];	//改用成员变量
 		char* recvBuf = m_buffer.data();	//若buffer里有多个包可以一一处理
-		memset(recvBuf, 0, MAX_SIZE);
-		size_t index = 0;
+		static size_t index = 0;
 		while (true) {
 			size_t len = recv(m_sockSrv, recvBuf + index, MAX_SIZE - index, 0);	//len --- 本次接收到数据的长度
-			if (len <= 0) {
+			if (((int)len <= 0) && ((int)index <= 0)) {
 				return -1;
 			}
+			TRACE("recv len = %d(0x%08X) index = %d(0x%08X)\r\n", len, len, index, index);
 			index += len;	//修正起始位置
 			len = index;	//实际接收到数据的长度
+			TRACE("recv len = %d(0x%08X) index = %d(0x%08X)\r\n", len, len, index, index);
 			m_packet = CPacket((BYTE*)recvBuf, len);	//len接收实际处理的包的长度
 			if (len > 0) {
 				memmove(recvBuf, recvBuf + len, MAX_SIZE - len);	//将已被处理的包所占的内存位置释放：后面的数据挪前面来
