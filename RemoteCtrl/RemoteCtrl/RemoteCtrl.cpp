@@ -246,8 +246,9 @@ int SendScreen() {
     int nWidth = GetDeviceCaps(hScreen, HORZRES);           // 获取水平宽度（像素）
     int nHeight = GetDeviceCaps(hScreen, VERTRES);          // 获取垂直高度（像素）
     screen.Create(nWidth, nHeight, nBitPerPixel);           // 按显示器参数创建图像
+    //BitBlt 函数执行与从指定源设备上下文到目标设备上下文中的像素矩形对应的颜色数据的位块传输
     BitBlt(screen.GetDC(), 0, 0, 1920, 1080, hScreen, 0, 0, SRCCOPY);   //图像复制到screen中
-    ReleaseDC(NULL, hScreen);                               // 完成任务，拜拜吧
+    ReleaseDC(NULL, hScreen);                               // hScreen完成任务，拜拜吧
 
     //// 瞅瞅图品质如何 ------- test start-------------------
     //DWORD tick = GetTickCount64();    //考虑使用“GetTickCount64”而不是“GetTickCount”。原因 : GetTickCount overflows roughly every 49 days.Code that does not take that into account can loop indefinitely.GetTickCount64 operates on 64 bit values and does not have that problem	RemoteCtrl
@@ -261,16 +262,16 @@ int SendScreen() {
     //TRACE("tiff %d\n", GetTickCount64() - tick);
     //// ---------------------- test end---------------------
 
-    //截图导入内存 F12一下screen.Save，可以用IStream那个重载来把图放到内存里
+    //截图存储在内存：F12一下screen.Save看看，可以用IStream那个重载函数将图存放到内存里
     HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);   //从堆分配指定的字节数
     if (hMem == NULL)return -1;
     IStream* pStream = NULL;
     HRESULT ret = CreateStreamOnHGlobal(hMem, TRUE, &pStream);    // 创建一个流对象，使用 HGLOBAL 内存句柄存储流内容
     if (ret == S_OK) {
-        screen.Save(pStream, Gdiplus::ImageFormatPNG);
+        screen.Save(pStream, Gdiplus::ImageFormatPNG);  //以PNG形式保存到流
         LARGE_INTEGER bg = { 0 };
         pStream->Seek(bg, STREAM_SEEK_SET, NULL);    //将指针移回指向截图数据开头
-        PBYTE pData = (PBYTE)GlobalLock(hMem);
+        PBYTE pData = (PBYTE)GlobalLock(hMem);       //锁定全局内存对象并返回指向对象内存块第一个字节的指针
         SIZE_T nSize = GlobalSize(hMem);
         CPacket pack(6, pData, nSize);
         CServerSocket::getInstance()->Send(pack);

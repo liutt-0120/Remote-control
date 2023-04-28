@@ -28,6 +28,8 @@ private:
 	void LoadFileCurrent();
 	static void ThreadForDownloadFile(void*);
 	void DownloadFile();
+	static void ThreadForWatchData(void*);
+	void WatchData();
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 
@@ -42,6 +44,19 @@ protected:
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
+public:
+	bool IsFull() const {
+		return m_isFull;
+	}
+	void SetImageStatus(bool bStatus = false) {
+		m_isFull = bStatus;
+	}
+	CImage& GetImage() {		//⭐艹，死点，切记拿全局对象实例时要返回引用
+		return m_image;
+	}
+private:
+	CImage m_image;	//获取屏幕图像的缓存
+	bool m_isFull;	//缓存是否有数据，true为有，false为无
 public:
 	afx_msg void OnBnClickedBtnTest();
 	// 服务器IP
@@ -61,4 +76,5 @@ public:
 	afx_msg LRESULT OnSendPacket(WPARAM wParam,LPARAM lParam);
 	afx_msg LRESULT OnSendProgress(WPARAM wParam, LPARAM lParam);
 
+	afx_msg void OnBnClickedBtnStartwatch();
 };

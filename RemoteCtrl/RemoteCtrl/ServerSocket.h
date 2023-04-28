@@ -6,7 +6,7 @@
 #pragma pack(push)
 #pragma pack(1)
 
-#define MAX_SIZE 4096
+#define MAX_SIZE 4096000
 
 class CPacket {
 public:

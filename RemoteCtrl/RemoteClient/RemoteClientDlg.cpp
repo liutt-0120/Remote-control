@@ -11,6 +11,7 @@
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
+#include "WatchDialog.h"
 
 
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
@@ -82,6 +83,7 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_MESSAGE(WM_SEND_PACKET,&CRemoteClientDlg::OnSendPacket)
 	ON_MESSAGE(WM_SEND_PROGRESS, &CRemoteClientDlg::OnSendProgress)
 
+	ON_BN_CLICKED(IDC_BTN_STARTWATCH, &CRemoteClientDlg::OnBnClickedBtnStartwatch)
 END_MESSAGE_MAP()
 
 
@@ -383,6 +385,51 @@ void CRemoteClientDlg::DownloadFile() {
 	}
 }
 
+void CRemoteClientDlg::ThreadForWatchData(void* args)
+{
+	CRemoteClientDlg* pCliDlg = (CRemoteClientDlg*)args;
+	pCliDlg->WatchData();
+	_endthread();
+}
+
+void CRemoteClientDlg::WatchData()
+{
+	CClientSocket* pClient = NULL;
+	do {
+		pClient = CClientSocket::getInstance();
+	} while (pClient == NULL);	//不停建立连接，确保不会因为网络差、距离远等原因无法建立连接
+
+	while (true) {
+		if (m_isFull == false) {	//若为false，更新数据到缓存
+			int ret = SendMessage(WM_SEND_PACKET, 6 << 1 | 1);
+			if (ret == 6) {
+
+				BYTE* pData = (BYTE*)pClient->GetPacket().strData.c_str();
+				HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);
+				if (hMem == NULL) {
+					TRACE("内存不足");
+					Sleep(1);
+					continue;
+				}
+				IStream* pStream = NULL;
+				HRESULT hRet = CreateStreamOnHGlobal(hMem, TRUE, &pStream);
+				if (hRet == S_OK) {
+					ULONG length = 0;
+					pStream->Write(pData, pClient->GetPacket().strData.size(), &length);
+					LARGE_INTEGER bg = { 0 };
+					pStream->Seek(bg, STREAM_SEEK_SET, NULL);
+					m_image.Load(pStream);
+					m_isFull = true;
+				}
+			}
+		}
+		else {
+			Sleep(1);
+		}
+
+	}
+}
+
 void CRemoteClientDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	// TODO: 在此添加控件通知处理程序代码
@@ -463,8 +510,20 @@ void CRemoteClientDlg::OnDeletefile()
 
 LRESULT CRemoteClientDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
 {
-	CString strFile = (LPCSTR)lParam;
-	int ret = SendCommandPacket(wParam>>1, wParam&1, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
+	int ret = 0;
+	int cmd = wParam >> 1;
+	switch (cmd) {
+	case 4: {
+		CString strFile = (LPCSTR)lParam;
+		ret = SendCommandPacket(cmd, wParam & 1, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
+	}
+		  break;
+	case 6: {
+		ret = SendCommandPacket(cmd, wParam & 1);
+	}
+		  break;
+	}
+
 	return ret;
 }
 
@@ -473,4 +532,14 @@ LRESULT CRemoteClientDlg::OnSendProgress(WPARAM wParam, LPARAM lParam)
 	m_statusDlg.m_info = (LPCSTR)lParam;
 	m_statusDlg.UpdateData(FALSE);
 	return 0;
+}
+
+
+void CRemoteClientDlg::OnBnClickedBtnStartwatch()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	_beginthread(CRemoteClientDlg::ThreadForWatchData, 0, this);
+	//GetDlgItem(IDC_BTN_STARTWATCH)->EnableWindow(FALSE);	//防止按钮连点
+	CWatchDialog dlg(this);		//传this进去后，子窗口就可通过getParent拿取父窗口参数
+	dlg.DoModal();
 }
