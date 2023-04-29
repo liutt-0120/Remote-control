@@ -397,9 +397,9 @@ void CRemoteClientDlg::WatchData()
 	CClientSocket* pClient = NULL;
 	do {
 		pClient = CClientSocket::getInstance();
-	} while (pClient == NULL);	//不停建立连接，确保不会因为网络差、距离远等原因无法建立连接
+	}while (pClient == NULL);	//不停建立连接，确保不会因为网络差、距离远等原因无法建立连接
 
-	while (true) {
+	while (!m_isClosed) {	//防止线程在里面黑转不出来
 		if (m_isFull == false) {	//若为false，更新数据到缓存
 			int ret = SendMessage(WM_SEND_PACKET, 6 << 1 | 1);
 			if (ret == 6) {
@@ -518,7 +518,14 @@ LRESULT CRemoteClientDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
 		ret = SendCommandPacket(cmd, wParam & 1, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
 	}
 		  break;
-	case 6: {
+	case 5: {
+		ret = SendCommandPacket(cmd, wParam & 1, (BYTE*)lParam, sizeof(MouseEv));
+	}
+		  break;
+	case 6:
+	case 7:
+	case 8:
+	{
 		ret = SendCommandPacket(cmd, wParam & 1);
 	}
 		  break;
@@ -538,8 +545,11 @@ LRESULT CRemoteClientDlg::OnSendProgress(WPARAM wParam, LPARAM lParam)
 void CRemoteClientDlg::OnBnClickedBtnStartwatch()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	_beginthread(CRemoteClientDlg::ThreadForWatchData, 0, this);
+	m_isClosed = false;
+	HANDLE hThread = (HANDLE)_beginthread(CRemoteClientDlg::ThreadForWatchData, 0, this);
 	//GetDlgItem(IDC_BTN_STARTWATCH)->EnableWindow(FALSE);	//防止按钮连点
 	CWatchDialog dlg(this);		//传this进去后，子窗口就可通过getParent拿取父窗口参数
 	dlg.DoModal();
+	m_isClosed = true;		//⭐设置关闭让线程解除循环，走到调用它的函数去关闭线程。否则关闭窗口后线程不会终止，再点击监控按钮又会开启一条线程，抢占CImage造成bug
+	WaitForSingleObject(hThread, 500);	
 }

@@ -57,6 +57,7 @@ public:
 private:
 	CImage m_image;	//获取屏幕图像的缓存
 	bool m_isFull;	//缓存是否有数据，true为有，false为无
+	bool m_isClosed;//监视是否关闭
 public:
 	afx_msg void OnBnClickedBtnTest();
 	// 服务器IP

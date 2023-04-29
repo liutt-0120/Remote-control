@@ -7,7 +7,7 @@
 #pragma pack(push)
 #pragma pack(1)
 
-#define MAX_SIZE 4096000
+#define MAX_SIZE 409600
 
 class CPacket {
 public:
@@ -224,7 +224,7 @@ public:
 		return send(m_sockSrv, pData, nSize, 0) > 0;
 	}
 
-	bool Send(CPacket& pack) {		//为何传类类型的引用必须要加const？
+	bool Send(CPacket& pack) {		
 		if (m_sockSrv == -1)return false;
 		return send(m_sockSrv, pack.Data(), pack.Size(), 0) > 0;
 	}

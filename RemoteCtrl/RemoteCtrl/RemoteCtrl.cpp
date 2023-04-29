@@ -169,16 +169,19 @@ int MouseEvent() {
             SetCursorPos(mouse.ptXY.x, mouse.ptXY.y);
         }
         switch (mouse.nAction) {
-        case 0:             //单击
+        case 0:
+            nFlags |= 0x00; //没有按键
+            break;
+        case 1:             //单击
             nFlags |= 0x10; //？ | 0001 0000
             break;
-        case 1:             //双击
+        case 2:             //双击
             nFlags |= 0x20; //？ | 0010 0000
             break;
-        case 2:             //按下
+        case 3:             //按下
             nFlags |= 0x40; //？ | 0100 0000
             break;
-        case 3:             //放开
+        case 4:             //放开
             nFlags |= 0x80; //？ | 1000 0000
             break;
         default:
@@ -226,10 +229,11 @@ int MouseEvent() {
             mouse_event(MOUSEEVENTF_MIDDLEUP, 0, 0, 0, GetMessageExtraInfo());
             break;
         case 0x08:  //鼠标移动 0000 1000
-            mouse_event(MOUSEEVENTF_MOVE, mouse.ptXY.x, mouse.ptXY.y, 0, GetMessageExtraInfo());
+            SetCursorPos(mouse.ptXY.x, mouse.ptXY.y);
+            //mouse_event(MOUSEEVENTF_MOVE, mouse.ptXY.x, mouse.ptXY.y, 0, GetMessageExtraInfo());    //这玩意儿有麻达
             break;
         }
-        CPacket pack(4, NULL, 0);
+        CPacket pack(5, NULL, 0);
         CServerSocket::getInstance()->Send(pack);   //知会对面一声收到了
     }
     else {
@@ -247,7 +251,7 @@ int SendScreen() {
     int nHeight = GetDeviceCaps(hScreen, VERTRES);          // 获取垂直高度（像素）
     screen.Create(nWidth, nHeight, nBitPerPixel);           // 按显示器参数创建图像
     //BitBlt 函数执行与从指定源设备上下文到目标设备上下文中的像素矩形对应的颜色数据的位块传输
-    BitBlt(screen.GetDC(), 0, 0, 1920, 1080, hScreen, 0, 0, SRCCOPY);   //图像复制到screen中
+    BitBlt(screen.GetDC(), 0, 0, nWidth, nHeight, hScreen, 0, 0, SRCCOPY);   //图像复制到screen中
     ReleaseDC(NULL, hScreen);                               // hScreen完成任务，拜拜吧
 
     //// 瞅瞅图品质如何 ------- test start-------------------
@@ -268,7 +272,7 @@ int SendScreen() {
     IStream* pStream = NULL;
     HRESULT ret = CreateStreamOnHGlobal(hMem, TRUE, &pStream);    // 创建一个流对象，使用 HGLOBAL 内存句柄存储流内容
     if (ret == S_OK) {
-        screen.Save(pStream, Gdiplus::ImageFormatPNG);  //以PNG形式保存到流
+        screen.Save(pStream, Gdiplus::ImageFormatJPEG);  //以PNG形式保存到流
         LARGE_INTEGER bg = { 0 };
         pStream->Seek(bg, STREAM_SEEK_SET, NULL);    //将指针移回指向截图数据开头
         PBYTE pData = (PBYTE)GlobalLock(hMem);       //锁定全局内存对象并返回指向对象内存块第一个字节的指针
@@ -298,6 +302,15 @@ unsigned WINAPI LockScreenByThread(void* arg) {
     rect.right = GetSystemMetrics(SM_CXFULLSCREEN);     //获取当前设备满屏的最大横坐标
     rect.bottom = GetSystemMetrics(SM_CYFULLSCREEN)*1.03;    //获取当前设备满屏的最大纵坐标
     dlg.MoveWindow(rect);
+    //设置锁屏字幕位置
+    CWnd* pText = dlg.GetDlgItem(IDC_STATIC);
+    if (pText) {
+        CRect rText;
+        pText->GetWindowRect(rText);
+        int x = (rect.right - rText.Width()) / 2;
+        int y = (rect.bottom - rText.Height()) / 2;
+        pText->MoveWindow(x, y, rText.Width(), rText.Height());
+    }
     //设置窗口置顶👇
     dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE); //AppMsg - Warning: calling DestroyWindow in CDialog::~CDialog --
                                                                             //AppMsg - OnDestroy or PostNcDestroy in derived class will not be called
@@ -323,7 +336,8 @@ unsigned WINAPI LockScreenByThread(void* arg) {
                 break; 
         }
     }
-    ShowCursor(true);
+    ClipCursor(NULL);   //恢复鼠标活动范围
+    ShowCursor(true);   //恢复鼠标功能
     ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_SHOW);   //显示任务栏
     dlg.DestroyWindow();
 

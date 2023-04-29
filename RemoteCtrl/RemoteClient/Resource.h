@@ -9,7 +9,6 @@
 #define IDR_MAINFRAME                   128
 #define IDR_MENU_RCLICK                 130
 #define IDD_DOWNLOAD_DIALOG             131
-#define IDD_DIALOG1                     133
 #define IDD_DLG_WATCH                   133
 #define IDC_BTN_TEST                    1000
 #define IDC_SERVER_PORT                 1001
@@ -21,6 +20,8 @@
 #define IDC_STATIC_DOWNLOAD             1011
 #define IDC_BTN_STARTWATCH              1012
 #define IDC_WATCH                       1013
+#define IDC_BTN_LOCK                    1014
+#define IDC_BTN_UNLOCK                  1015
 #define ID_32771                        32771
 #define ID_32772                        32772
 #define ID_32773                        32773
@@ -34,7 +35,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        135
 #define _APS_NEXT_COMMAND_VALUE         32777
-#define _APS_NEXT_CONTROL_VALUE         1014
+#define _APS_NEXT_CONTROL_VALUE         1016
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
