@@ -225,6 +225,11 @@ void CRemoteClientDlg::OnBnClickedBtnFileinfo()
 		}
 		dr += drivers[i];
 	}
+	if (dr.size() > 0) {
+		dr += ":";
+		HTREEITEM hTmp = m_tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
+		m_tree.InsertItem(0, hTmp, TVI_LAST);
+	}
 }
 
 CString CRemoteClientDlg::GetPath(HTREEITEM hTree) {
