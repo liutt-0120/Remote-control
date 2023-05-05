@@ -21,15 +21,10 @@ public:
 	enum { IDD = IDD_REMOTECLIENT_DIALOG };
 #endif
 private:
-	int SendCommandPacket(int nCmd,bool bAutoClose = true, BYTE* pData = NULL, size_t nLength = 0);
 	CString CRemoteClientDlg::GetPath(HTREEITEM hTree);
 	void DeleteTreeChildrenItem(HTREEITEM hTreeSelected);
 	void LoadFileInfo();
 	void LoadFileCurrent();
-	static void ThreadForDownloadFile(void*);
-	void DownloadFile();
-	static void ThreadForWatchData(void*);
-	void WatchData();
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 
@@ -78,4 +73,6 @@ public:
 	afx_msg LRESULT OnSendProgress(WPARAM wParam, LPARAM lParam);
 
 	afx_msg void OnBnClickedBtnStartwatch();
+	afx_msg void OnIpnFieldchangedIpaddressServer(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnEnChangeServerPort();
 };
