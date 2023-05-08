@@ -80,9 +80,6 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_COMMAND(ID_OPENFILE, &CRemoteClientDlg::OnOpenfile)
 	ON_COMMAND(ID_DOWNLOADFILE, &CRemoteClientDlg::OnDownloadfile)
 	ON_COMMAND(ID_DELETEFILE, &CRemoteClientDlg::OnDeletefile)
-	//ON_MESSAGE(WM_SEND_PACKET,&CRemoteClientDlg::OnSendPacket)
-	//ON_MESSAGE(WM_SEND_PROGRESS, &CRemoteClientDlg::OnSendProgress)
-
 	ON_BN_CLICKED(IDC_BTN_STARTWATCH, &CRemoteClientDlg::OnBnClickedBtnStartwatch)
 	ON_NOTIFY(IPN_FIELDCHANGED, IDC_IPADDRESS_SERVER, &CRemoteClientDlg::OnIpnFieldchangedIpaddressServer)
 	ON_EN_CHANGE(IDC_SERVER_PORT, &CRemoteClientDlg::OnEnChangeServerPort)
@@ -122,14 +119,11 @@ BOOL CRemoteClientDlg::OnInitDialog()
 
 	// TODO: 在此添加额外的初始化代码
 	UpdateData();
-	m_server_address = 0x7F000001;
+	m_server_address = 0xC0A83867;
 	m_port = _T("9527");
 	CClientController* pController = CClientController::GetInstance();
 	pController->UpdateAddress(m_server_address, atoi((LPCTSTR)m_port));
 	UpdateData(false);
-
-	m_statusDlg.Create(IDD_DOWNLOAD_DIALOG, this);
-	m_statusDlg.ShowWindow(SW_HIDE);
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
 
@@ -253,19 +247,19 @@ void CRemoteClientDlg::LoadFileInfo()
 	DeleteTreeChildrenItem(hTreeSelected);	//重复点击时，删除子树重绘
 	m_list.DeleteAllItems();
 	CString strPath = GetPath(hTreeSelected);
-	int nCmd = CClientController::GetInstance()->SendCommandPacket(2, false, (BYTE*)(LPCSTR)strPath, strPath.GetLength());
+	CClientController* ctrl = CClientController::GetInstance();
+	int nCmd = ctrl->SendCommandPacket(2, false, (BYTE*)(LPCSTR)strPath, strPath.GetLength());
 
-	CClientSocket* pClient = CClientSocket::getInstance();
-	PFileInfo pInfo = (PFileInfo)pClient->GetPacket().strData.c_str();	//如果下面有货，接第一个文件/文件夹
+	PFileInfo pInfo = (PFileInfo)ctrl->GetPacket().strData.c_str();	//如果下面有货，接第一个文件/文件夹
 	while (pInfo->hasNext) {
 		TRACE("[%s],idDir:%d\r\n", pInfo->szFileName, pInfo->isDirectory);
 		if (pInfo->isDirectory) {
 			if (CString(pInfo->szFileName) == "." || CString(pInfo->szFileName) == "..") {
-				int cmd = pClient->DealCommand();
+				int cmd = ctrl->DealCommand();
 				TRACE("ack:%d\r\n", cmd);
 				if (cmd < 0)break;
 				std::string strOut;
-				PFileInfo pInfo = (PFileInfo)pClient->GetPacket().Data(strOut);
+				PFileInfo pInfo = (PFileInfo)ctrl->GetPacket().Data(strOut);
 				continue;
 			}
 			HTREEITEM hTmp = m_tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
@@ -276,15 +270,12 @@ void CRemoteClientDlg::LoadFileInfo()
 			m_list.InsertItem(0, pInfo->szFileName);
 		}
 
-		int cmd = pClient->DealCommand();
+		int cmd = ctrl->DealCommand();
 		TRACE("ack:%d\r\n", cmd);
 		if (cmd < 0)break;
-		PFileInfo pInfo = (PFileInfo)pClient->GetPacket().strData.c_str();//如果hasNext为true，接后续文件/文件夹
-		//if (!(pInfo->hasNext)) {	//date4.26，如果非要用GetChildItem判断是否有子目录，可以在这强行加一个空子目，但不好看，还是觉得直接别GetChildItem检查的好，毕竟文件都不放在树里。
-		//	m_tree.InsertItem(NULL, hTreeSelected, TVI_LAST);	//让目录看起来是有子节点的架势
-		//}
+		PFileInfo pInfo = (PFileInfo)ctrl->GetPacket().strData.c_str();//如果hasNext为true，接后续文件/文件夹
 	}
-	pClient->CloseSocket();
+	ctrl->CloseSocket();
 }
 
 void CRemoteClientDlg::LoadFileCurrent()
@@ -391,39 +382,6 @@ void CRemoteClientDlg::OnDeletefile()
 		AfxMessageBox("删除文件命令执行失败");
 	}
 	LoadFileCurrent();
-}
-
-LRESULT CRemoteClientDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
-{
-	int ret = 0;
-	int cmd = wParam >> 1;
-	switch (cmd) {
-	case 4: {
-		CString strFile = (LPCSTR)lParam;
-		ret = CClientController::GetInstance()->SendCommandPacket(cmd, wParam & 1, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
-	}
-		  break;
-	case 5: {
-		ret = CClientController::GetInstance()->SendCommandPacket(cmd, wParam & 1, (BYTE*)lParam, sizeof(MouseEv));
-	}
-		  break;
-	case 6:
-	case 7:
-	case 8:
-	{
-		ret = CClientController::GetInstance()->SendCommandPacket(cmd, wParam & 1);
-	}
-		  break;
-	}
-
-	return ret;
-}
-
-LRESULT CRemoteClientDlg::OnSendProgress(WPARAM wParam, LPARAM lParam)
-{
-	m_statusDlg.m_info = (LPCSTR)lParam;
-	m_statusDlg.UpdateData(FALSE);
-	return 0;
 }
 
 

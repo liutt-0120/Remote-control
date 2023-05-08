@@ -119,10 +119,10 @@ public:
 			int nRet = DealCommand();
 			if (nRet > 0) {
 				m_callback(m_arg, nRet,pack_list,m_packet);
-			}
-			while (pack_list.size() != 0) {
-				Send(pack_list.front());
-				pack_list.pop_front();
+				while (pack_list.size() != 0) {
+					Send(pack_list.front());
+					pack_list.pop_front();
+				}
 			}
 			CloseClient();
 		}
@@ -131,6 +131,7 @@ public:
 
 	static CServerSocket* getInstance() {
 		if (m_instance == NULL) {
+			TRACE("CServerSocket* getInstance≥ı ºªØm_instance\r\n");
 			m_instance = new CServerSocket();
 		}
 		return m_instance;
@@ -250,6 +251,7 @@ private:
 
 		~CGarbo() {
 			if (m_instance != NULL)
+				TRACE("CGarbo Õ∑≈m_instance\r\n");
 				delete m_instance;
 		}
 	};

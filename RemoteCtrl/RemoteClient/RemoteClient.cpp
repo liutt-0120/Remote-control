@@ -73,6 +73,11 @@ BOOL CRemoteClientApp::InitInstance()
 
 	CClientController::GetInstance()->InitController();
 	INT_PTR nResponse = CClientController::GetInstance()->Invoke(m_pMainWnd);
+#ifdef _DEBUG
+
+	m_msOld.Checkpoint();
+
+#endif // _DEBUG
 	//修改为↑
 	//CRemoteClientDlg dlg;
 	//m_pMainWnd = &dlg;
@@ -108,3 +113,27 @@ BOOL CRemoteClientApp::InitInstance()
 	return FALSE;
 }
 
+
+
+int CRemoteClientApp::ExitInstance()
+{
+	// TODO: 在此添加专用代码和/或调用基类
+#ifdef _DEBUG
+
+	m_msNew.Checkpoint();
+
+	if (m_msDiff.Difference(m_msOld, m_msNew))
+
+	{
+
+		afxDump << "\nMemory Leaked :\n";
+
+		m_msDiff.DumpStatistics();
+
+		afxDump << "Dump Complete !\n\n";
+
+	}
+
+#endif // _DEBUG
+	return CWinApp::ExitInstance();
+}

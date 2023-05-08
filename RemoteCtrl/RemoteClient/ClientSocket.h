@@ -6,6 +6,8 @@
 #include <vector>
 #include "CPacket.h"
 #include "MyTool.h"
+#include <map>
+#include <list>
 #define MAX_SIZE 409600
 
 /// <summary>
@@ -14,10 +16,10 @@
 class CClientSocket {
 public:
 	static CClientSocket* getInstance() {
-		if (m_instance == NULL) {
-			m_instance = new CClientSocket();
+		if (m_clientInstance == NULL) {
+			m_clientInstance = new CClientSocket();
 		}
-		return m_instance;
+		return m_clientInstance;
 	}
 
 	//socket相关函数
@@ -27,9 +29,10 @@ public:
 		if (m_sockSrv == -1)return false;
 
 		SOCKADDR_IN addrSrv;
-		//addrSrv.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");
+		addrSrv.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");
+
 		TRACE("addr:%08x , ip:%08x\r\n", inet_addr("127.0.0.1"), m_nIP);	//addr:0100007f , ip:7f000001
-		addrSrv.sin_addr.S_un.S_addr = htonl(m_nIP);	//The htonl function converts a u_long from host to TCP/IP network byte order (which is big-endian).
+		//addrSrv.sin_addr.S_un.S_addr = htonl(m_nIP);	//The htonl function converts a u_long from host to TCP/IP network byte order (which is big-endian).
 		addrSrv.sin_family = AF_INET;
 		addrSrv.sin_port = htons(m_nPort);
 		if (addrSrv.sin_addr.S_un.S_addr == INADDR_NONE) {
@@ -69,18 +72,6 @@ public:
 		return -1;
 	}
 
-	bool Send(const char* pData, int nSize) {
-		if (m_sockSrv == -1)return false;
-		return send(m_sockSrv, pData, nSize, 0) > 0;
-	}
-
-	bool Send(const CPacket& pack) {		
-		if (m_sockSrv == -1)return false;
-		std::string strOut;
-		pack.Data(strOut);
-		return send(m_sockSrv, strOut.c_str(), strOut.size(), 0) > 0;
-	}
-
 	bool GetFilePath(std::string& strPath) {
 		if ((m_packet.sCmd >= 2) && (m_packet.sCmd <= 4)) {
 			strPath = m_packet.strData;
@@ -113,7 +104,19 @@ public:
 		m_nIP = ip;
 		m_nPort = port;
 	}
+	bool SendInPacketList(CPacket& pack);
+
+	bool GetRecvPacket(std::list<CPacket>& packlst,HANDLE& hEvent);
+
+	SOCKET& GetSockSrv() {
+		return m_sockSrv;
+	}
+protected:
+	static void ThreadEntry(void* arg);
+	void ThreadFunc();
 private:
+	std::list<CPacket> m_lstSend;	//存发出去的pack
+	std::map<HANDLE, std::list<CPacket>> m_mapPack;	//存recv的事件对应的回复packList
 	int m_nIP;	//地址
 	int m_nPort;	//端口
 	SOCKET m_sockSrv;
@@ -137,7 +140,7 @@ private:
 		closesocket(m_sockSrv);
 		WSACleanup();
 	}
-	static CClientSocket* m_instance;
+	static CClientSocket* m_clientInstance;
 
 	bool InitSockEnv() {
 		WSADATA data;
@@ -147,13 +150,18 @@ private:
 		return TRUE;
 	}
 
+	bool Send(const char* pData, int nSize);
+
+	bool Send(const CPacket& pack);
+
+
 private:
 	class CGarbo {
 	public:
 
 		~CGarbo() {
-			if (m_instance != NULL)
-				delete m_instance;
+			if (m_clientInstance != NULL)
+				delete m_clientInstance;
 		}
 	};
 	static CGarbo garbo;

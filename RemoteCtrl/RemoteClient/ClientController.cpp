@@ -2,25 +2,26 @@
 #include "ClientController.h"
 
 
-CClientController* CClientController::m_instance = NULL;
+CClientController* CClientController::m_ctrlInstance = NULL;
 std::map<UINT, CClientController::MSGFUNC>CClientController::m_mapFunc;
+CClientController::CGarbo CClientController::garbo;
 
 CClientController* CClientController::GetInstance()
 {
-    if (m_instance != NULL) {
-        m_instance = new CClientController();
-        struct { UINT nMsg; MSGFUNC func; } MsgFuncs[] = {
-            {WM_SEND_PACK,&CClientController::OnSendPack},
-            {WM_SEND_DATA,&CClientController::OnSendData},
-            {WM_SHOW_STATUS,&CClientController::OnShowStatus},
-            {WM_SHOW_WATCH,&CClientController::OnShowWatcher},
-            {(UINT)-1,NULL}
-        };
-        for (int i = 0; MsgFuncs[i].func != NULL; i++) {
-            m_mapFunc.insert(std::pair<UINT, MSGFUNC>(MsgFuncs[i].nMsg, MsgFuncs[i].func));
-        }
+    if (m_ctrlInstance == NULL) {
+        m_ctrlInstance = new CClientController();
+        //struct { UINT nMsg; MSGFUNC func; } MsgFuncs[] = {
+        //    {WM_SEND_PACK,&CClientController::OnSendPack},
+        //    {WM_SEND_DATA,&CClientController::OnSendData},
+        //    {WM_SHOW_STATUS,&CClientController::OnShowStatus},
+        //    {WM_SHOW_WATCH,&CClientController::OnShowWatcher},
+        //    {(UINT)-1,NULL}
+        //};
+        //for (int i = 0; MsgFuncs[i].func != NULL; i++) {
+        //    m_mapFunc.insert(std::pair<UINT, MSGFUNC>(MsgFuncs[i].nMsg, MsgFuncs[i].func));
+        //}
     }
-    return m_instance;
+    return m_ctrlInstance;
 }
 
 int CClientController::InitController()
@@ -36,14 +37,48 @@ int CClientController::Invoke(CWnd*& pMainWnd)
     return m_remoteDlg.DoModal();
 }
 
-LRESULT CClientController::SendMessage2Func(MSG msg)
+////20230506 --- 估计没什么用，毕竟用户操作客户端的时间间隔不会集中到抢占资源
+//LRESULT CClientController::SendMessage2Func(MSG msg)
+//{
+//    HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+//    if (hEvent == NULL)return -2;
+//    MSGINFO msgInfo(msg);
+//    PostThreadMessage(m_wThreadId, WM_SEND_MESSAGE, (WPARAM)&msgInfo, (LPARAM)hEvent);
+//    WaitForSingleObject(hEvent, -1);
+//    return msgInfo.result;
+//}
+
+int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, size_t nLength, std::list<CPacket>* pPackLst)
 {
+    CClientSocket* pClient = CClientSocket::getInstance();
     HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-    if (hEvent == NULL)return -2;
-    MSGINFO msgInfo(msg);
-    PostThreadMessage(m_wThreadId, WM_SEND_MESSAGE, (WPARAM)&msgInfo, (LPARAM)hEvent);
-    WaitForSingleObject(hEvent, -1);
-    return msgInfo.result;
+    if (hEvent == NULL) {
+        return -2;
+    }
+    CPacket pack(nCmd, pData, nLength, hEvent);
+    std::list<CPacket> tmp;
+    if (pPackLst == NULL) {
+        pPackLst = &tmp;
+    }
+    bool bRet = pClient->SendInPacketList(pack);
+    if (bRet) {
+        WaitForSingleObject(hEvent, -1);
+        if (pClient->GetRecvPacket(*pPackLst, hEvent)) {
+            CloseHandle(hEvent);
+            TRACE("ack:%d\r\n", pPackLst->front().sCmd);
+            return pPackLst->front().sCmd;
+        }
+        else {
+            CloseHandle(hEvent);
+            return -1;
+        }
+    }
+    else {
+        CloseHandle(hEvent);
+        return -3;
+    }
+
+
 }
 
 int CClientController::GetImage(CImage& image)
@@ -76,10 +111,14 @@ void CClientController::StartWatchScreen()
     m_isClosed = false;
     m_hThreadWatch = (HANDLE)_beginthread(CClientController::ThreadEntryForWatchScreen, 0, this);
     //GetDlgItem(IDC_BTN_STARTWATCH)->EnableWindow(FALSE);	//防止按钮连点
-    CWatchDialog dlg(&m_remoteDlg);
-    dlg.DoModal();
+    m_watchDlg.DoModal();
     m_isClosed = true;		//?设置关闭让线程解除循环，走到调用它的函数去关闭线程。否则关闭窗口后线程不会终止，再点击监控按钮又会开启一条线程，抢占CImage造成bug
     WaitForSingleObject(m_hThreadWatch, 500);
+}
+
+CPacket& CClientController::GetPacket()
+{
+    return CClientSocket::getInstance()->GetPacket();
 }
 
 unsigned __stdcall CClientController::ThreadEntry(void* arg)
@@ -120,25 +159,25 @@ void CClientController::ThreadFunc()
     }
 }
 
-LRESULT CClientController::OnSendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
-{
-    return LRESULT();
-}
-
-LRESULT CClientController::OnSendData(UINT nMsg, WPARAM wParam, LPARAM lParam)
-{
-    return LRESULT();
-}
-
-LRESULT CClientController::OnShowStatus(UINT nMsg, WPARAM wParam, LPARAM lParam)
-{
-    return m_statusDlg.ShowWindow(SW_SHOW);
-}
-
-LRESULT CClientController::OnShowWatcher(UINT nMsg, WPARAM wParam, LPARAM lParam)
-{
-    return m_watchDlg.DoModal();
-}
+//LRESULT CClientController::OnSendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
+//{
+//    return LRESULT();
+//}
+//
+//LRESULT CClientController::OnSendData(UINT nMsg, WPARAM wParam, LPARAM lParam)
+//{
+//    return LRESULT();
+//}
+//
+//LRESULT CClientController::OnShowStatus(UINT nMsg, WPARAM wParam, LPARAM lParam)
+//{
+//    return m_statusDlg.ShowWindow(SW_SHOW);
+//}
+//
+//LRESULT CClientController::OnShowWatcher(UINT nMsg, WPARAM wParam, LPARAM lParam)
+//{
+//    return m_watchDlg.DoModal();
+//}
 
 void CClientController::ThreadEntryForDownloadFile(void* args)
 {
@@ -177,9 +216,9 @@ void CClientController::ThreadFuncForDownloadFile()
             nCount += pClient->GetPacket().strData.size();
             double progressData = (double)nCount * 100 / nLength;
             CString str;
-            str.Format(_T("已下载：%.2lf"), progressData);
-            m_statusDlg.m_info = str;
-            m_statusDlg.UpdateData(FALSE);
+            str.Format(_T("%.2lf"), progressData);
+            m_statusDlg.m_info2.SetWindowText(_T("已下载：") + str);
+            //m_statusDlg.UpdateData(false);
         }
         m_remoteDlg.MessageBox(_T("下载成功！"));
     } while (false);
@@ -201,11 +240,13 @@ void CClientController::ThreadFuncForWatchScreen()
 {
     Sleep(50);
     while (!m_isClosed) {	//防止线程在里面黑转不出来
-        if (m_remoteDlg.IsFull() == false) {	//若为false，更新数据到缓存
-            int ret = SendCommandPacket(6);
+        if (m_watchDlg.IsFull() == false) {	//若为false，更新数据到缓存
+            std::list<CPacket> packList;
+            int ret = SendCommandPacket(6,true,NULL,0,&packList);
             if (ret == 6) {
-                if (GetImage(m_remoteDlg.GetImage()) == 0) {
-                    m_remoteDlg.SetImageStatus(true);
+                if (CMyTool::Byte2Image(m_watchDlg.GetImage(), packList.front().strData) == 0) {
+                    m_watchDlg.SetImageStatus(true);
+                    TRACE("获取图片！ ret = %d\r\n", ret);
                 }
                 else {
                     TRACE("获取图片失败！ ret = %d\r\n", ret);

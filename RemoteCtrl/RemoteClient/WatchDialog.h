@@ -18,6 +18,20 @@ public:
 public:
 	int m_nObjWdith;
 	int m_nObjHeight;
+public:
+	bool IsFull() const {
+		return m_isFull;
+	}
+	void SetImageStatus(bool bStatus = false) {
+		m_isFull = bStatus;
+	}
+	CImage& GetImage() {		//⭐艹，死点，切记拿全局对象实例时要返回引用
+		return m_image;
+	}
+private:
+	CImage m_image;	//获取屏幕图像的缓存
+	bool m_isFull;	//缓存是否有数据，true为有，false为无
+	bool m_isClosed;//监视是否关闭
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持
 

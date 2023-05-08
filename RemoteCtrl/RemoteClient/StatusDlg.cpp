@@ -27,6 +27,7 @@ void CStatusDlg::DoDataExchange(CDataExchange* pDX)
 	CDialog::DoDataExchange(pDX);
 	DDX_Text(pDX, IDC_STATIC_DOWNLOAD, m_info);
 	DDX_Control(pDX, IDC_PROGRESS_DOWNLOAD, m_progressBar);
+	DDX_Control(pDX, IDC_STATIC_DOWNLOAD, m_info2);
 }
 
 

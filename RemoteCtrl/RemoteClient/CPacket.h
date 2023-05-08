@@ -9,15 +9,17 @@
 
 class CPacket {
 public:
-	CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0) {
+	CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0),hEvent(INVALID_HANDLE_VALUE) {
 		TRACE("shead:%d,nlength:%d,scmd:%d,ssum:%d\r\n", sHead, nLength, sCmd, sSum);
 	}
 	CPacket(const CPacket& pack) {
+		TRACE("CPacket nLength = %d\r\n", pack.nLength);
 		sHead = pack.sHead;
 		nLength = pack.nLength;
 		sCmd = pack.sCmd;
 		strData = pack.strData;
 		sSum = pack.sSum;
+		hEvent = pack.hEvent;
 	}
 	CPacket& operator=(const CPacket& pack) {
 		if (this != &pack) {
@@ -26,6 +28,7 @@ public:
 			sCmd = pack.sCmd;
 			strData = pack.strData;
 			sSum = pack.sSum;
+			hEvent = pack.hEvent;
 		}
 		return *this;
 	}
@@ -36,16 +39,22 @@ public:
 	/// <param name="nCmd"></param>
 	/// <param name="pData"></param>
 	/// <param name="nSize"></param>
-	CPacket(WORD nCmd, const BYTE* pData, size_t nSize) :CPacket() {
+	CPacket(WORD nCmd, const BYTE* pData, size_t nSize,HANDLE hEvent){
 		sHead = 0xFEFF;
 		nLength = nSize + 2 + 2;
 		sCmd = nCmd;
+		if (nSize > 0) {
+			strData.resize(nSize);
+			memcpy((void*)strData.c_str(), pData, nSize);
+		}
+		else {
+			strData.clear();
+		}
 
-		strData.resize(nSize);
-		memcpy((void*)strData.c_str(), pData, nSize);
 		for (int i = 0; i < nSize; ++i) {
 			sSum += strData[i] & 0xFF;
 		}
+		this->hEvent = hEvent;
 	}
 
 	/// <summary>
@@ -53,7 +62,7 @@ public:
 	/// </summary>
 	/// <param name="pData">包</param>
 	/// <param name="nSize">接收的信息长度</param>
-	CPacket(const BYTE* pData, size_t& nSize) :CPacket() {
+	CPacket(const BYTE* pData, size_t& nSize){
 		size_t i = 0;
 		//查找包头
 		for (; i < nSize; ++i) {
@@ -106,6 +115,7 @@ public:
 	}
 
 	const char* Data(std::string& strOut) const {
+		TRACE("给strOut的length：%d\r\n", nLength);
 		strOut.resize(nLength + 6);
 		BYTE* pData = (BYTE*)strOut.c_str();
 		*(WORD*)pData = sHead; pData += 2;
@@ -122,7 +132,7 @@ public:
 	WORD sCmd;		//控制命令
 	std::string strData;	//数据
 	WORD sSum;		//和校验
-
+	HANDLE hEvent;
 	std::string strOut;	//输出组合起来的整个包数据
 };
 

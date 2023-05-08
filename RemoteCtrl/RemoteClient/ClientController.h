@@ -8,10 +8,10 @@
 #include "ClientSocket.h"
 #include "MyTool.h"
 
-#define WM_SEND_PACK (WM_USER)+1
-#define WM_SEND_DATA (WM_USER)+2
-#define WM_SHOW_STATUS (WM_USER)+3
-#define	WM_SHOW_WATCH (WM_USER)+4
+//#define WM_SEND_PACK (WM_USER)+1
+//#define WM_SEND_DATA (WM_USER)+2
+//#define WM_SHOW_STATUS (WM_USER)+3
+//#define	WM_SHOW_WATCH (WM_USER)+4
 #define WM_SEND_MESSAGE (WM_USER)+0x1000
 /// <summary>
 /// MVC中的C，视图和数据的中间传递者，解耦
@@ -25,8 +25,8 @@ public:
 	int InitController();
 	// 启动
 	int Invoke(CWnd*& pMainWnd);
-	//发送消息
-	LRESULT SendMessage2Func(MSG msg);
+	////发送消息
+	//LRESULT SendMessage2Func(MSG msg);
 	//更新服务器地址
 	void UpdateAddress(int ip, int port) {
 		CClientSocket::getInstance()->UpdateAddress(ip, port);
@@ -37,27 +37,19 @@ public:
 	void CloseSocket() {
 		CClientSocket::getInstance()->CloseSocket();
 	}
-	bool SendPacket(const CPacket& pack) {
-		CClientSocket* pClient = CClientSocket::getInstance();
-		if (pClient->InitSocket() == false)return false;
-		pClient->Send(pack);
-	}
+	//bool SendPacket(const CPacket& pack) {
+	//	CClientSocket* pClient = CClientSocket::getInstance();
+	//	if (pClient->InitSocket() == false)return false;
+	//	pClient->Send(pack);
+	//}
 
-	int SendCommandPacket(int nCmd, bool bAutoClose = true, BYTE* pData = NULL, size_t nLength = 0) {
-		CClientSocket* pClient = CClientSocket::getInstance();
-		if (pClient->InitSocket() == false)return false;
-		pClient->Send(CPacket(nCmd, pData, nLength));
-		int cmd = DealCommand();
-		TRACE("ack:%d\r\n", cmd);
-		if (bAutoClose)
-			CloseSocket();
-		return cmd;
-	}
+	int SendCommandPacket(int nCmd, bool bAutoClose = true, BYTE* pData = NULL, size_t nLength = 0, std::list<CPacket>* pPackLst = NULL);
 	int GetImage(CImage& image);
 
 	int DownloadFile(CString strPath);
 
 	void StartWatchScreen();
+	CPacket& GetPacket();
 
 protected:
 	CClientController():
@@ -78,10 +70,10 @@ protected:
 	//实际被线程触发的方法
 	void ThreadFunc();
 
-	LRESULT OnSendPack(UINT nMsg, WPARAM wParam, LPARAM lParam);
-	LRESULT OnSendData(UINT nMsg, WPARAM wParam, LPARAM lParam);
-	LRESULT OnShowStatus(UINT nMsg, WPARAM wParam, LPARAM lParam);
-	LRESULT OnShowWatcher(UINT nMsg, WPARAM wParam, LPARAM lParam);
+	//LRESULT OnSendPack(UINT nMsg, WPARAM wParam, LPARAM lParam);
+	//LRESULT OnSendData(UINT nMsg, WPARAM wParam, LPARAM lParam);
+	//LRESULT OnShowStatus(UINT nMsg, WPARAM wParam, LPARAM lParam);
+	//LRESULT OnShowWatcher(UINT nMsg, WPARAM wParam, LPARAM lParam);
 
 	//下载的线程入口
 	static void ThreadEntryForDownloadFile(void* args);
@@ -91,7 +83,7 @@ protected:
 	void ThreadFuncForWatchScreen();
 
 private:
-	static CClientController* m_instance;
+	static CClientController* m_ctrlInstance;
 
 	typedef struct MsgInfo {
 		MSG msg;
@@ -136,8 +128,8 @@ private:
 	public:
 
 		~CGarbo() {
-			if (m_instance != NULL)
-				delete m_instance;
+			if (m_ctrlInstance != NULL)
+				delete m_ctrlInstance;
 		}
 	};
 	static CGarbo garbo;

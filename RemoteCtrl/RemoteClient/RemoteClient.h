@@ -27,6 +27,13 @@ public:
 // 实现
 
 	DECLARE_MESSAGE_MAP()
+#ifdef _DEBUG
+
+protected: CMemoryState m_msOld, m_msNew, m_msDiff;
+
+#endif // _DEBUG
+public:
+	virtual int ExitInstance();
 };
 
 extern CRemoteClientApp theApp;

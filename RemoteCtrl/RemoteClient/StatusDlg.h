@@ -25,4 +25,5 @@ public:
 	CString m_info;
 	// 下载进度条
 	CProgressCtrl m_progressBar;
+	CStatic m_info2;
 };
