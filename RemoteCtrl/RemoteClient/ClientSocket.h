@@ -29,10 +29,9 @@ public:
 		if (m_sockSrv == -1)return false;
 
 		SOCKADDR_IN addrSrv;
-		addrSrv.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");
-
+		//addrSrv.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");
 		TRACE("addr:%08x , ip:%08x\r\n", inet_addr("127.0.0.1"), m_nIP);	//addr:0100007f , ip:7f000001
-		//addrSrv.sin_addr.S_un.S_addr = htonl(m_nIP);	//The htonl function converts a u_long from host to TCP/IP network byte order (which is big-endian).
+		addrSrv.sin_addr.S_un.S_addr = htonl(m_nIP);	//The htonl function converts a u_long from host to TCP/IP network byte order (which is big-endian).
 		addrSrv.sin_family = AF_INET;
 		addrSrv.sin_port = htons(m_nPort);
 		if (addrSrv.sin_addr.S_un.S_addr == INADDR_NONE) {

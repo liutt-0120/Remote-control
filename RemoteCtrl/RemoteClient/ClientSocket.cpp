@@ -30,6 +30,9 @@ void CClientSocket::ThreadEntry(void* arg)
 	_endthread();
 }
 
+/// <summary>
+/// 线程方法：从要发送的list<CPacket>里取数据，往服务端send。
+/// </summary>
 void CClientSocket::ThreadFunc()
 {
 	Sleep(100);
@@ -40,14 +43,13 @@ void CClientSocket::ThreadFunc()
 	while (m_sockSrv != INVALID_SOCKET) {
 		if (m_lstSend.size() > 0) {
 			TRACE("m_lstSend.size:%d\r\n",m_lstSend.size());
-			auto tmp = m_lstSend.front();
-			CPacket head = tmp;
-			if (Send(tmp) == false) {				//将队列中要发送的发出去
+			CPacket& head = m_lstSend.front();
+			if (Send(head) == false) {				//将队列中要发送的发出去
 				TRACE(_T("发送失败！\r\n"));
 				InitSocket();
 				continue;
 			}
-			auto pr = m_mapPack.insert(std::pair<HANDLE, std::list<CPacket>>(tmp.hEvent, std::list<CPacket>()));
+			auto pr = m_mapPack.insert(std::pair<HANDLE, std::list<CPacket>>(head.hEvent, std::list<CPacket>()));
 			int len = recv(m_sockSrv, pBuffer + index, MAX_SIZE - index, 0);
 			if (len > 0 || index > 0) {
 				index += len;
@@ -58,7 +60,7 @@ void CClientSocket::ThreadFunc()
 
 				if (size > 0) {
 					//TODO：通知对应事件
-					pack.hEvent = tmp.hEvent;
+					pack.hEvent = head.hEvent;
 					pr.first->second.push_back(pack);	
 					SetEvent(pack.hEvent);
 					memmove(pBuffer, pBuffer + size, index - size);
