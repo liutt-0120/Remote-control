@@ -46,45 +46,52 @@ void CClientSocket::ThreadFunc()
 			CPacket& head = m_lstSend.front();
 			if (Send(head) == false) {				//将队列中要发送的发出去
 				TRACE(_T("发送失败！\r\n"));
-				InitSocket();
 				continue;
 			}
 			auto pr = m_mapPack.insert(std::pair<HANDLE, std::list<CPacket>>(head.hEvent, std::list<CPacket>()));
-			int len = recv(m_sockSrv, pBuffer + index, MAX_SIZE - index, 0);
-			if (len > 0 || index > 0) {
-				index += len;
-				len = index;
-				size_t size = (size_t)len;
-				TRACE("len:%d,size:%d\r\n", len, size);
-				CPacket pack((BYTE*)pBuffer, size);
+			auto pAutoClosed = m_mapAutoClosed.find(head.hEvent);
+			do {
+				int len = recv(m_sockSrv, pBuffer + index, MAX_SIZE - index, 0);
+				if (len > 0 || index > 0) {
+					index += len;
+					len = index;
+					size_t size = (size_t)len;
+					TRACE("len:%d,size:%d\r\n", len, size);
+					CPacket pack((BYTE*)pBuffer, size);
 
-				if (size > 0) {
-					//TODO：通知对应事件
-					pack.hEvent = head.hEvent;
-					pr.first->second.push_back(pack);	
-					SetEvent(pack.hEvent);
-					memmove(pBuffer, pBuffer + size, index - size);
-					index -= size;
+					if (size > 0) {
+						//TODO：通知对应事件
+						pack.hEvent = head.hEvent;
+						pr.first->second.push_back(pack);
+						memmove(pBuffer, pBuffer + size, index - size);
+						index -= size;
+					}
 				}
-			}
-			else if (len <= 0 && index <= 0) {
-				TRACE(_T("好像没接收到啥\r\n"));
-				continue;
-			}
+				else if (len <= 0 && index <= 0) {
+					TRACE(_T("没接收到啥了\r\n"));
+					CloseSocket();
+					break;
+				}
+			} while (pAutoClosed->second==false);
+			SetEvent(head.hEvent);
+			m_mapAutoClosed.erase(head.hEvent);
 			m_lstSend.pop_front();
+			InitSocket();
+
 		}
 	}
 }
 
-bool CClientSocket::SendInPacketList(CPacket& pack)
+bool CClientSocket::SendInPacketList(CPacket& pack,bool bAutoClose)
 {
-	TRACE("pack的length:%d\r\n", pack.nLength);
 	if (m_sockSrv == INVALID_SOCKET) {
 		if (InitSocket() == false) return false;
 		_beginthread(CClientSocket::ThreadEntry, 0, this);
 	}
-	TRACE("往里塞,length = %d\r\n",pack.nLength);
+
+	m_mapAutoClosed.insert({ pack.hEvent, bAutoClose });
 	m_lstSend.push_back(pack);
+	//m_mapPack.insert(std::pair<HANDLE, std::list<CPacket>>(pack.hEvent, std::list<CPacket>()));
 	return true;
 }
 

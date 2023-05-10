@@ -173,7 +173,7 @@ protected:
 		}
 		memset(recvBuf, 0, MAX_SIZE);
 		size_t index = 0;
-		while (true) {
+		while (true)  {
 			size_t len = recv(m_sockCli, recvBuf + index, MAX_SIZE - index, 0);	//len --- 本次接收到数据的长度
 			if (len <= 0) {
 				delete[] recvBuf;

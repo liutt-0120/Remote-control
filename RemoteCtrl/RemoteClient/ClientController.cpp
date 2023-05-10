@@ -60,9 +60,9 @@ int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData,
     if (pPackLst == NULL) {
         pPackLst = &tmp;
     }
-    bool bRet = pClient->SendInPacketList(pack);
+    bool bRet = pClient->SendInPacketList(pack, bAutoClose);
     if (bRet) {
-        WaitForSingleObject(hEvent, -1);
+        WaitForSingleObject(hEvent, INFINITE);
         if (pClient->GetRecvPacket(*pPackLst, hEvent)) {
             CloseHandle(hEvent);
             TRACE("ack:%d\r\n", pPackLst->front().sCmd);
@@ -242,7 +242,7 @@ void CClientController::ThreadFuncForWatchScreen()
     while (!m_isClosed) {	//防止线程在里面黑转不出来
         if (m_watchDlg.IsFull() == false) {	//若为false，更新数据到缓存
             std::list<CPacket> packList;
-            int ret = SendCommandPacket(6,true,NULL,0,&packList);
+            int ret = SendCommandPacket(6, true, NULL, 0, &packList);
             if (ret == 6) {
                 if (CMyTool::Byte2Image(m_watchDlg.GetImage(), packList.front().strData) == 0) {
                     m_watchDlg.SetImageStatus(true);

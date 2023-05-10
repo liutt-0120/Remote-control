@@ -186,12 +186,13 @@ void CRemoteClientDlg::OnBnClickedBtnTest()
 void CRemoteClientDlg::OnBnClickedBtnFileinfo()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	int ret = CClientController::GetInstance()->SendCommandPacket(1);
-	if (ret == -1) {
+	std::list<CPacket> packLst;
+	int ret = CClientController::GetInstance()->SendCommandPacket(1, true, NULL, 0, &packLst);
+	if (ret == -1 || packLst.size() <= 0) {
 		AfxMessageBox(_T("命令处理失败！"));
+		return;
 	}
-	CClientSocket* pClient = CClientSocket::getInstance();
-	std::string drivers = pClient->GetPacket().strData;
+	std::string drivers = packLst.front().strData;
 	std::string dr;
 	m_tree.DeleteAllItems();
 	for (size_t i = 0; i < drivers.size(); ++i) {
@@ -247,33 +248,26 @@ void CRemoteClientDlg::LoadFileInfo()
 	DeleteTreeChildrenItem(hTreeSelected);	//重复点击时，删除子树重绘
 	m_list.DeleteAllItems();
 	CString strPath = GetPath(hTreeSelected);
+	std::list<CPacket> packLst;
 	CClientController* ctrl = CClientController::GetInstance();
-	int nCmd = ctrl->SendCommandPacket(2, false, (BYTE*)(LPCSTR)strPath, strPath.GetLength());
+	int nCmd = ctrl->SendCommandPacket(2, false, (BYTE*)(LPCSTR)strPath, strPath.GetLength(), &packLst);
+	if (packLst.size() > 0) {
+		std::list<CPacket>::iterator it = packLst.begin();
+		for (; it != packLst.end(); it++) {
+			PFileInfo pInfo = (PFileInfo)(*it).strData.c_str();	//如果下面有货，接第一个文件/文件夹
+			if (pInfo->hasNext == false) continue;
+			if (pInfo->isDirectory) {
+				if (CString(pInfo->szFileName) == "." || CString(pInfo->szFileName) == "..") {
+					continue;
+				}
+				HTREEITEM hTmp = m_tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
+				m_tree.InsertItem("", hTmp, TVI_LAST);	//让目录看起来是有子节点的架势
 
-	PFileInfo pInfo = (PFileInfo)ctrl->GetPacket().strData.c_str();	//如果下面有货，接第一个文件/文件夹
-	while (pInfo->hasNext) {
-		TRACE("[%s],idDir:%d\r\n", pInfo->szFileName, pInfo->isDirectory);
-		if (pInfo->isDirectory) {
-			if (CString(pInfo->szFileName) == "." || CString(pInfo->szFileName) == "..") {
-				int cmd = ctrl->DealCommand();
-				TRACE("ack:%d\r\n", cmd);
-				if (cmd < 0)break;
-				std::string strOut;
-				PFileInfo pInfo = (PFileInfo)ctrl->GetPacket().Data(strOut);
-				continue;
 			}
-			HTREEITEM hTmp = m_tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
-			m_tree.InsertItem("", hTmp, TVI_LAST);	//让目录看起来是有子节点的架势
-
+			else {
+				m_list.InsertItem(0, pInfo->szFileName);
+			}
 		}
-		else {
-			m_list.InsertItem(0, pInfo->szFileName);
-		}
-
-		int cmd = ctrl->DealCommand();
-		TRACE("ack:%d\r\n", cmd);
-		if (cmd < 0)break;
-		PFileInfo pInfo = (PFileInfo)ctrl->GetPacket().strData.c_str();//如果hasNext为true，接后续文件/文件夹
 	}
 	ctrl->CloseSocket();
 }

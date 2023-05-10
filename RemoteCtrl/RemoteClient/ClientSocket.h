@@ -103,7 +103,7 @@ public:
 		m_nIP = ip;
 		m_nPort = port;
 	}
-	bool SendInPacketList(CPacket& pack);
+	bool SendInPacketList(CPacket& pack,bool bAutoClose);
 
 	bool GetRecvPacket(std::list<CPacket>& packlst,HANDLE& hEvent);
 
@@ -116,6 +116,7 @@ protected:
 private:
 	std::list<CPacket> m_lstSend;	//存发出去的pack
 	std::map<HANDLE, std::list<CPacket>> m_mapPack;	//存recv的事件对应的回复packList
+	std::map<HANDLE, bool> m_mapAutoClosed;
 	int m_nIP;	//地址
 	int m_nPort;	//端口
 	SOCKET m_sockSrv;
