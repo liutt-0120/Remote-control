@@ -8,8 +8,38 @@
 #include "MyTool.h"
 #include <map>
 #include <list>
+#include <mutex>
 #define MAX_SIZE 409600
+#define WM_SEND_PACK (WM_USER)+1
+#define WM_SEND_PACK_ACK (WM_USER)+2
 
+enum {
+	CSM_AUTOCLOSE = 1,	//CSM = Client Socket Mode自动关闭模式
+};
+
+/// <summary>
+/// 发送的数据结构
+/// </summary>
+typedef struct PacketData{
+	std::string strData;
+	UINT nMode;
+	PacketData(const char* pData, size_t nLen, UINT mode) {
+		strData.resize(nLen);
+		memcpy((char*)strData.c_str(), pData, nLen);
+		nMode = mode;
+	}
+	PacketData(const PacketData& packData) {
+		strData = packData.strData;
+		nMode = packData.nMode;
+	}
+	PacketData& operator=(const PacketData& packData) {
+		if (this != &packData) {
+			strData = packData.strData;
+			nMode = packData.nMode;
+		}
+		return *this;
+	}
+}PACKET_DATA;
 /// <summary>
 /// 客户端socket网络类
 /// </summary>
@@ -103,39 +133,44 @@ public:
 		m_nIP = ip;
 		m_nPort = port;
 	}
-	bool SendInPacketList(CPacket& pack,bool bAutoClose);
+	/*
+	bool SendInPacketList(CPacket& pack, bool bAutoClose);
 
 	bool GetRecvPacket(std::list<CPacket>& packlst,HANDLE& hEvent);
-
+	*/
 	SOCKET& GetSockSrv() {
 		return m_sockSrv;
 	}
+
+	bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool bAutoClose);
+
 protected:
 	static void ThreadEntry(void* arg);
 	void ThreadFunc();
+	//reconfiguration
+protected:
+	static unsigned WINAPI ThreadEntry_Remake(void* arg);
+	void ThreadFunc_Remake();
+
+	void SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam);
+private:
+	typedef void(CClientSocket::* MSGFUNC)(UINT nMsg, WPARAM wParam, LPARAM lParam);
+	std::map<UINT, MSGFUNC> m_mapFunc;
 private:
 	std::list<CPacket> m_lstSend;	//存发出去的pack
 	std::map<HANDLE, std::list<CPacket>> m_mapPack;	//存recv的事件对应的回复packList
 	std::map<HANDLE, bool> m_mapAutoClosed;
+	std::mutex m_lock;
 	int m_nIP;	//地址
 	int m_nPort;	//端口
 	SOCKET m_sockSrv;
 	CPacket m_packet;
 	std::vector<char>m_buffer;	//使用容器，不用担心内存泄漏
-	CClientSocket() :m_nIP(INADDR_ANY), m_nPort(0) {
-		m_sockSrv = INVALID_SOCKET;
-		if (InitSockEnv() == FALSE) {
-			MessageBox(NULL, _T("初始化套接字环境失败，请检查网络设置"), _T("初始化错误"), MB_OK | MB_ICONERROR);
-			exit(0);
-		}
-		m_buffer.resize(MAX_SIZE);	//初始化size为4096
-	}
-	CClientSocket(const CClientSocket& cs) {
-		m_sockSrv = cs.m_sockSrv;
-		m_nIP = cs.m_nIP;
-		m_nPort = cs.m_nPort;
-	}
-	CClientSocket& operator=(const CClientSocket&) {}
+	HANDLE m_hThread;
+	UINT m_wThreadId;
+	CClientSocket();
+	CClientSocket(const CClientSocket& cs);
+	CClientSocket& operator=(const CClientSocket& cs);
 	~CClientSocket() {
 		closesocket(m_sockSrv);
 		WSACleanup();
@@ -165,5 +200,7 @@ private:
 		}
 	};
 	static CGarbo garbo;
+	
+
 };
 

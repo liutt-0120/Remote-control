@@ -97,7 +97,7 @@ void CWatchDialog::OnLButtonDblClk(UINT nFlags, CPoint point)
 		event.ptXY = remote;
 		event.nButton = 0;	//左键
 		event.nAction = 1;	//双击
-		CClientController::GetInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
+		CClientController::GetInstance()->SendCommandPacket(GetSafeHwnd(),5, true, (BYTE*)&event, sizeof(event));
 	}
 	CDialog::OnLButtonDblClk(nFlags, point);
 }
@@ -114,7 +114,7 @@ void CWatchDialog::OnLButtonDown(UINT nFlags, CPoint point)
 		event.ptXY = remote;
 		event.nButton = 0;
 		event.nAction = 2;	//按下
-		CClientController::GetInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
+		CClientController::GetInstance()->SendCommandPacket(GetSafeHwnd(), 5, true, (BYTE*)&event, sizeof(event));
 	}
 	CDialog::OnLButtonDown(nFlags, point);
 }
@@ -131,7 +131,7 @@ void CWatchDialog::OnLButtonUp(UINT nFlags, CPoint point)
 		event.ptXY = remote;
 		event.nButton = 0;
 		event.nAction = 3;	//放开
-		CClientController::GetInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
+		CClientController::GetInstance()->SendCommandPacket(GetSafeHwnd(), 5, true, (BYTE*)&event, sizeof(event));
 	}
 	CDialog::OnLButtonUp(nFlags, point);
 }
@@ -148,7 +148,7 @@ void CWatchDialog::OnRButtonDblClk(UINT nFlags, CPoint point)
 		event.ptXY = remote;
 		event.nButton = 1;	//右键
 		event.nAction = 1;	//双击
-		CClientController::GetInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
+		CClientController::GetInstance()->SendCommandPacket(GetSafeHwnd(), 5, true, (BYTE*)&event, sizeof(event));
 	}
 	CDialog::OnRButtonDblClk(nFlags, point);
 }
@@ -165,7 +165,7 @@ void CWatchDialog::OnRButtonDown(UINT nFlags, CPoint point)
 		event.ptXY = remote;
 		event.nButton = 1;	//右键
 		event.nAction = 2;	//按下
-		CClientController::GetInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
+		CClientController::GetInstance()->SendCommandPacket(GetSafeHwnd(), 5, true, (BYTE*)&event, sizeof(event));
 	}
 	CDialog::OnRButtonDown(nFlags, point);
 }
@@ -182,7 +182,7 @@ void CWatchDialog::OnRButtonUp(UINT nFlags, CPoint point)
 		event.ptXY = remote;
 		event.nButton = 0;
 		event.nAction = 3;	//放开
-		CClientController::GetInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
+		CClientController::GetInstance()->SendCommandPacket(GetSafeHwnd(), 5, true, (BYTE*)&event, sizeof(event));
 	}
 	CDialog::OnRButtonUp(nFlags, point);
 }
@@ -190,7 +190,6 @@ void CWatchDialog::OnRButtonUp(UINT nFlags, CPoint point)
 
 void CWatchDialog::OnMouseMove(UINT nFlags, CPoint point)
 {
-	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	if ((m_nObjHeight != -1) && (m_nObjWdith != -1)) {
 		//坐标转换
 		CPoint remote = UserPoint2RemoteScreenPoint(point);
@@ -199,16 +198,22 @@ void CWatchDialog::OnMouseMove(UINT nFlags, CPoint point)
 		event.ptXY = remote;
 		event.nButton = 3;	//没有按键
 		event.nAction = 0;	//不相关
-		CClientController::GetInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
+		CClientController::GetInstance()->SendCommandPacket(GetSafeHwnd(),5, true, (BYTE*)&event, sizeof(event));
 	}
 	CDialog::OnMouseMove(nFlags, point);
 }
 
+/// <summary>
+/// 按分辨率缩放屏幕
+/// </summary>
+/// <param name="point">坐标点</param>
+/// <param name="isScreen">是否全局坐标（全局坐标以屏幕左上角为(0,0)）</param>
+/// <returns>返回实际坐标点</returns>
 CPoint CWatchDialog::UserPoint2RemoteScreenPoint(CPoint& point,bool isScreen)
 {
-	if (isScreen == true) {
-		ScreenToClient(&point);
-	}
+	if (isScreen == false)ClientToScreen(&point);	//转换为相对屏幕左上角的坐标（屏幕内的绝对坐标）
+	m_picture.ScreenToClient(&point);				//转换回客户屏幕区域的坐标（相对picture控件左上角的坐标）
+
 	CRect clientRect;
 	m_picture.GetWindowRect(clientRect);
 	int width0 = clientRect.Width();
@@ -230,13 +235,13 @@ void CWatchDialog::OnOK()
 
 void CWatchDialog::OnBnClickedBtnLock()
 {
-	CClientController::GetInstance()->SendCommandPacket(7);
+	CClientController::GetInstance()->SendCommandPacket(GetSafeHwnd(),7);
 
 }
 
 
 void CWatchDialog::OnBnClickedBtnUnlock()
 {
-	CClientController::GetInstance()->SendCommandPacket(8);
+	CClientController::GetInstance()->SendCommandPacket(GetSafeHwnd(), 8);
 
 }

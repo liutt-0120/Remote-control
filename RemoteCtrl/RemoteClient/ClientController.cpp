@@ -48,37 +48,10 @@ int CClientController::Invoke(CWnd*& pMainWnd)
 //    return msgInfo.result;
 //}
 
-int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, size_t nLength, std::list<CPacket>* pPackLst)
+bool CClientController::SendCommandPacket(HWND hWnd,int nCmd,bool bAutoClose,BYTE* pData,size_t nLength)
 {
     CClientSocket* pClient = CClientSocket::getInstance();
-    HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-    if (hEvent == NULL) {
-        return -2;
-    }
-    CPacket pack(nCmd, pData, nLength, hEvent);
-    std::list<CPacket> tmp;
-    if (pPackLst == NULL) {
-        pPackLst = &tmp;
-    }
-    bool bRet = pClient->SendInPacketList(pack, bAutoClose);
-    if (bRet) {
-        WaitForSingleObject(hEvent, INFINITE);
-        if (pClient->GetRecvPacket(*pPackLst, hEvent)) {
-            CloseHandle(hEvent);
-            TRACE("ack:%d\r\n", pPackLst->front().sCmd);
-            return pPackLst->front().sCmd;
-        }
-        else {
-            CloseHandle(hEvent);
-            return -1;
-        }
-    }
-    else {
-        CloseHandle(hEvent);
-        return -3;
-    }
-
-
+    return pClient->SendPacket(hWnd, CPacket(nCmd, pData, nLength), bAutoClose);
 }
 
 int CClientController::GetImage(CImage& image)
@@ -198,7 +171,7 @@ void CClientController::ThreadFuncForDownloadFile()
     }
     CClientSocket* pClient = CClientSocket::getInstance();
     do {
-        int ret = SendCommandPacket(4, false, (BYTE*)(LPCSTR)m_strRemotePath, m_strRemotePath.GetLength());
+        int ret = SendCommandPacket(m_remoteDlg.GetSafeHwnd(),4, false, (BYTE*)(LPCSTR)m_strRemotePath, m_strRemotePath.GetLength());
         long long nLength = *(long long*)pClient->GetPacket().strData.c_str();	//先接收文件的总长
         if (nLength == 0) {
             AfxMessageBox("文件长度为0，无法读取");
@@ -242,7 +215,9 @@ void CClientController::ThreadFuncForWatchScreen()
     while (!m_isClosed) {	//防止线程在里面黑转不出来
         if (m_watchDlg.IsFull() == false) {	//若为false，更新数据到缓存
             std::list<CPacket> packList;
-            int ret = SendCommandPacket(6, true, NULL, 0, &packList);
+            int ret = SendCommandPacket(m_watchDlg.GetSafeHwnd(),6, true, NULL, 0);
+            //TODO：添加消息响应函数WM_SEND_PACK_ACK
+            //TODO：控制发送频率
             if (ret == 6) {
                 if (CMyTool::Byte2Image(m_watchDlg.GetImage(), packList.front().strData) == 0) {
                     m_watchDlg.SetImageStatus(true);

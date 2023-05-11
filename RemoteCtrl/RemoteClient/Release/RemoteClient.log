@@ -17,6 +17,6 @@ E:\C++Leraning\gitRemoteCtrl\Remote-control\RemoteCtrl\RemoteClient\CPacket.h(54
 E:\C++Leraning\gitRemoteCtrl\Remote-control\RemoteCtrl\RemoteClient\CPacket.h(152,10): warning C4305: “初始化”: 从“int”到“bool”截断
   正在生成代码
   Previous IPDB not found, fall back to full compilation.
-  All 858 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  All 965 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
   已完成代码的生成
   RemoteClient.vcxproj -> E:\C++Leraning\gitRemoteCtrl\Remote-control\RemoteCtrl\Release\RemoteClient.exe

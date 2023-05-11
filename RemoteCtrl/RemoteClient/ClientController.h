@@ -43,7 +43,31 @@ public:
 	//	pClient->Send(pack);
 	//}
 
-	int SendCommandPacket(int nCmd, bool bAutoClose = true, BYTE* pData = NULL, size_t nLength = 0, std::list<CPacket>* pPackLst = NULL);
+	/// <summary>
+	/// 1 查看磁盘分区
+	/// 2 查看指定目录下的文件
+	/// 3 打开文件
+	/// 4下载文件
+	/// 9 删除文件
+	/// 5 鼠标操作
+	/// 6 发送屏幕内容
+	/// 7 锁机
+	/// 8 解锁
+	/// 95 测试连接
+	/// </summary>
+	/// <param name="hWnd">数据包收到后需要应答的窗口</param>
+	/// <param name="nCmd"></param>
+	/// <param name="bAutoClose">是否自动关闭</param>
+	/// <param name="pData"></param>
+	/// <param name="nLength"></param>
+	/// <returns>返回状态，true成功，false失败</returns>
+	bool SendCommandPacket(
+		HWND hWnd,
+		int nCmd, 
+		bool bAutoClose = true, 
+		BYTE* pData = NULL, 
+		size_t nLength = 0
+	);
 	int GetImage(CImage& image);
 
 	int DownloadFile(CString strPath);
