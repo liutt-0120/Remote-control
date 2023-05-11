@@ -51,7 +51,8 @@ int CClientController::Invoke(CWnd*& pMainWnd)
 bool CClientController::SendCommandPacket(HWND hWnd,int nCmd,bool bAutoClose,BYTE* pData,size_t nLength,WPARAM wParam)
 {
     CClientSocket* pClient = CClientSocket::getInstance();
-    return pClient->SendPacket(hWnd, CPacket(nCmd, pData, nLength), bAutoClose,wParam);
+    bool ret = pClient->SendPacket(hWnd, CPacket(nCmd, pData, nLength), bAutoClose,wParam);
+    return ret;
 }
 
 int CClientController::GetImage(CImage& image)

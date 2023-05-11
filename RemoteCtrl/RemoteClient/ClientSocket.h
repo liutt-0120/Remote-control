@@ -172,6 +172,7 @@ private:
 	std::vector<char>m_buffer;	//使用容器，不用担心内存泄漏
 	HANDLE m_hThread;
 	UINT m_wThreadId;
+	HANDLE m_eventInvoke;		//启动事件
 	CClientSocket();
 	CClientSocket(const CClientSocket& cs);
 	CClientSocket& operator=(const CClientSocket& cs);

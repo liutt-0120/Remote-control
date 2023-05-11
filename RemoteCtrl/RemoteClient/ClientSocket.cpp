@@ -11,7 +11,16 @@ CClientSocket::CClientSocket() :m_nIP(INADDR_ANY), m_nPort(0),m_sockSrv(INVALID_
 		MessageBox(NULL, _T("初始化套接字环境失败，请检查网络设置"), _T("初始化错误"), MB_OK | MB_ICONERROR);
 		exit(0);
 	}
+	m_eventInvoke = CreateEvent(NULL, TRUE, FALSE, NULL);
+	if (m_eventInvoke != 0) {
+		m_hThread = (HANDLE)_beginthreadex(NULL, 0, CClientSocket::ThreadEntry_Remake, this, 0, &m_wThreadId);
+		if (WaitForSingleObject(m_eventInvoke, 100) == WAIT_TIMEOUT) {
+			TRACE("网络消息处理线程启动失败！\r\n");
+		}
+		CloseHandle(m_eventInvoke);
+	}
 	m_buffer.resize(MAX_SIZE);	//初始化size为4096
+	memset(m_buffer.data(), 0, MAX_SIZE);
 	struct {
 		UINT message;
 		MSGFUNC func;
@@ -144,10 +153,12 @@ unsigned CClientSocket::ThreadEntry_Remake(void* arg)
 
 void CClientSocket::ThreadFunc_Remake()
 {
+	SetEvent(m_eventInvoke);
 	MSG msg;
 	while (::GetMessage(&msg, NULL, 0, 0)) {
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
+		TRACE("Get Message:%08X \r\n", msg.message);
 		if (m_mapFunc.find(msg.message) != m_mapFunc.end()) {
 			(this->*m_mapFunc[msg.message])(msg.message, msg.wParam, msg.lParam);
 		}
@@ -157,8 +168,10 @@ void CClientSocket::ThreadFunc_Remake()
 void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
 {
 	//TODO：定义一个消息的数据结构（数据、数据长度、模式），一个回调消息的数据结构（HWND MESSAGE）
-	PACKET_DATA data = *(PACKET_DATA*)wParam;
-	delete (PACKET_DATA*)wParam;	//体会一些为何要这么写。如果调用者传值的变量是个局部变量那用引用有可能造成野指针；因此对方最好用new存数据传值，此处确定复制到手后释放对面占用的堆内存
+	if (wParam != NULL) {
+		PACKET_DATA data = *(PACKET_DATA*)wParam;
+		delete (PACKET_DATA*)wParam;	//体会一下为何要这么写。如果调用者传值的变量是个局部变量那用引用有可能造成野指针；因此对方最好用new存数据传值，此处确定复制到手后释放对面占用的堆内存
+	}
 	HWND hWnd = (HWND)lParam;
 	if (InitSocket() == true) {
 		int ret = send(m_sockSrv, (char*)data.strData.c_str(), (int)data.strData.size(), 0);
@@ -204,9 +217,6 @@ void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
 }
 
 bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool bAutoClose,WPARAM wParam) {
-	if (m_hThread == INVALID_HANDLE_VALUE) {
-		m_hThread = (HANDLE)_beginthreadex(NULL, 0, CClientSocket::ThreadEntry_Remake, this, 0, &m_wThreadId);
-	}
 	UINT nMode = bAutoClose ? CSM_AUTOCLOSE : 0;
 	std::string strOut;
 	pack.Data(strOut);
