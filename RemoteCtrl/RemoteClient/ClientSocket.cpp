@@ -174,7 +174,7 @@ void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
 					size_t nLen = index;
 					CPacket pack((BYTE*)pBuffer, nLen);
 					if (nLen > 0) {
-						::SendMessage(hWnd, WM_SEND_PACK_ACK, (WPARAM)new CPacket(pack), NULL);	//look！这块就用了个new，所以被调用的方法那边要记得delete
+						::SendMessage(hWnd, WM_SEND_PACK_ACK, (WPARAM)new CPacket(pack), (LPARAM)data.wParam);	//look！这块就用了个new，所以被调用的方法那边要记得delete
 						if (data.nMode & CSM_AUTOCLOSE) {
 							CloseSocket();
 							return;
@@ -199,18 +199,18 @@ void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
 	}
 	else {
 		//TODO：错误处理
-		::SendMessage(hWnd, WM_SEND_PACK_ACK, NULL, NULL);
+		::SendMessage(hWnd, WM_SEND_PACK_ACK, NULL, -2);
 	}
 }
 
-bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool bAutoClose) {
+bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool bAutoClose,WPARAM wParam) {
 	if (m_hThread == INVALID_HANDLE_VALUE) {
 		m_hThread = (HANDLE)_beginthreadex(NULL, 0, CClientSocket::ThreadEntry_Remake, this, 0, &m_wThreadId);
 	}
 	UINT nMode = bAutoClose ? CSM_AUTOCLOSE : 0;
 	std::string strOut;
 	pack.Data(strOut);
-	return PostThreadMessage(m_wThreadId, WM_SEND_PACK, (WPARAM)new PACKET_DATA(strOut.c_str(), strOut.size(), nMode), (LPARAM)hWnd);
+	return PostThreadMessage(m_wThreadId, WM_SEND_PACK, (WPARAM)new PACKET_DATA(strOut.c_str(), strOut.size(), nMode, wParam), (LPARAM)hWnd);
 }
 
 /*

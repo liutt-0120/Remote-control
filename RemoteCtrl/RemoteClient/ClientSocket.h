@@ -10,8 +10,8 @@
 #include <list>
 #include <mutex>
 #define MAX_SIZE 409600
-#define WM_SEND_PACK (WM_USER)+1
-#define WM_SEND_PACK_ACK (WM_USER)+2
+#define WM_SEND_PACK (WM_USER)+1		//发送包数据
+#define WM_SEND_PACK_ACK (WM_USER)+2	//发送包数据应答
 
 enum {
 	CSM_AUTOCLOSE = 1,	//CSM = Client Socket Mode自动关闭模式
@@ -23,19 +23,23 @@ enum {
 typedef struct PacketData{
 	std::string strData;
 	UINT nMode;
-	PacketData(const char* pData, size_t nLen, UINT mode) {
+	WPARAM wParam;
+	PacketData(const char* pData, size_t nLen, UINT mode,WPARAM param) {
 		strData.resize(nLen);
 		memcpy((char*)strData.c_str(), pData, nLen);
 		nMode = mode;
+		wParam = param;
 	}
 	PacketData(const PacketData& packData) {
 		strData = packData.strData;
 		nMode = packData.nMode;
+		wParam = packData.wParam;
 	}
 	PacketData& operator=(const PacketData& packData) {
 		if (this != &packData) {
 			strData = packData.strData;
 			nMode = packData.nMode;
+			wParam = packData.wParam;
 		}
 		return *this;
 	}
@@ -142,7 +146,7 @@ public:
 		return m_sockSrv;
 	}
 
-	bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool bAutoClose);
+	bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool bAutoClose,WPARAM wParam);
 
 protected:
 	static void ThreadEntry(void* arg);

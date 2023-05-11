@@ -40,6 +40,7 @@ BEGIN_MESSAGE_MAP(CWatchDialog, CDialog)
 	ON_WM_MOUSEMOVE()
 	ON_BN_CLICKED(IDC_BTN_LOCK, &CWatchDialog::OnBnClickedBtnLock)
 	ON_BN_CLICKED(IDC_BTN_UNLOCK, &CWatchDialog::OnBnClickedBtnUnlock)
+	ON_MESSAGE(WM_SEND_PACK_ACK, &CWatchDialog::OnSendPackAck)
 END_MESSAGE_MAP()
 
 
@@ -244,4 +245,33 @@ void CWatchDialog::OnBnClickedBtnUnlock()
 {
 	CClientController::GetInstance()->SendCommandPacket(GetSafeHwnd(), 8);
 
+}
+
+LRESULT CWatchDialog::OnSendPackAck(WPARAM wParam, LPARAM lParam)
+{
+	if (lParam == -1 || lParam == -2) {
+
+	}
+	else if (lParam == 1) {
+
+	}
+	else {
+		if (wParam != NULL) {
+			CPacket packet = *(CPacket*)wParam;
+			delete (CPacket*)wParam;
+			switch (packet.sCmd) {
+			case 1:
+			break;
+			case 2:
+			break;
+			case 3:
+			case 4:
+			case 5:
+			case 95:
+			default:
+				break;
+			}
+		}
+	}
+	return LRESULT();
 }

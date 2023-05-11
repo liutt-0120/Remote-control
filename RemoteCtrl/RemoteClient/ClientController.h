@@ -66,7 +66,8 @@ public:
 		int nCmd, 
 		bool bAutoClose = true, 
 		BYTE* pData = NULL, 
-		size_t nLength = 0
+		size_t nLength = 0,
+		WPARAM wParam = 0
 	);
 	int GetImage(CImage& image);
 
@@ -74,6 +75,8 @@ public:
 
 	void StartWatchScreen();
 	CPacket& GetPacket();
+
+	void DownloadEnd();
 
 protected:
 	CClientController():

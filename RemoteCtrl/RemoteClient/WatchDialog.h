@@ -1,5 +1,8 @@
 ﻿#pragma once
 
+#ifndef  WM_SEND_PACK_ACK
+#define WM_SEND_PACK_ACK (WM_USER)+2	//发送包数据应答
+#endif
 
 // CWatchDialog 对话框
 
@@ -51,4 +54,6 @@ public:
 	virtual void OnOK();
 	afx_msg void OnBnClickedBtnLock();
 	afx_msg void OnBnClickedBtnUnlock();
+	afx_msg LRESULT OnSendPackAck(WPARAM wParam, LPARAM lParam);
+
 };
