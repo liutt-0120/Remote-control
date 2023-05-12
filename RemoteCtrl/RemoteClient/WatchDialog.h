@@ -28,9 +28,7 @@ public:
 	void SetImageStatus(bool bStatus = false) {
 		m_isFull = bStatus;
 	}
-	CImage& GetImage() {		//⭐艹，死点，切记拿全局对象实例时要返回引用
-		return m_image;
-	}
+
 private:
 	CImage m_image;	//获取屏幕图像的缓存
 	bool m_isFull;	//缓存是否有数据，true为有，false为无

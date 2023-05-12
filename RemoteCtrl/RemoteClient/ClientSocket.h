@@ -63,9 +63,10 @@ public:
 		if (m_sockSrv == -1)return false;
 
 		SOCKADDR_IN addrSrv;
-		//addrSrv.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");
+		memset(&addrSrv, 0, sizeof(addrSrv));
+		addrSrv.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");
 		TRACE("addr:%08x , ip:%08x\r\n", inet_addr("127.0.0.1"), m_nIP);	//addr:0100007f , ip:7f000001
-		addrSrv.sin_addr.S_un.S_addr = htonl(m_nIP);	//The htonl function converts a u_long from host to TCP/IP network byte order (which is big-endian).
+		//addrSrv.sin_addr.S_un.S_addr = htonl(m_nIP);	//The htonl function converts a u_long from host to TCP/IP network byte order (which is big-endian).
 		addrSrv.sin_family = AF_INET;
 		addrSrv.sin_port = htons(m_nPort);
 		if (addrSrv.sin_addr.S_un.S_addr == INADDR_NONE) {
@@ -76,7 +77,9 @@ public:
 		if (ret == SOCKET_ERROR) {
 			AfxMessageBox("连接失败");	//mfc
 			TRACE("连接失败：%d\r\n", WSAGetLastError(), CMyTool::GetErrorInfo(WSAGetLastError()).c_str());
+			return false;
 		}
+		TRACE("连接成功\r\n");
 		return true;
 	}
 
@@ -149,8 +152,8 @@ public:
 	bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool bAutoClose,WPARAM wParam);
 
 protected:
-	static void ThreadEntry(void* arg);
-	void ThreadFunc();
+	//static void ThreadEntry(void* arg);
+	//void ThreadFunc();
 	//reconfiguration
 protected:
 	static unsigned WINAPI ThreadEntry_Remake(void* arg);

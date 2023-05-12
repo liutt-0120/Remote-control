@@ -33,7 +33,7 @@ public:
 	/// <param name="nCmd"></param>
 	/// <param name="pData"></param>
 	/// <param name="nSize"></param>
-	CPacket(WORD nCmd, const BYTE* pData, size_t nSize) :CPacket() {
+	CPacket(WORD nCmd, const BYTE* pData, size_t nSize):CPacket() {
 		sHead = 0xFEFF;
 		nLength = nSize + 2 + 2;
 		sCmd = nCmd;

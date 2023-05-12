@@ -37,7 +37,7 @@ public:
 	/// <param name="nCmd"></param>
 	/// <param name="pData"></param>
 	/// <param name="nSize"></param>
-	CPacket(WORD nCmd, const BYTE* pData, size_t nSize){
+	CPacket(WORD nCmd, const BYTE* pData, size_t nSize) :CPacket() {
 		sHead = 0xFEFF;
 		nLength = nSize + 2 + 2;
 		sCmd = nCmd;
@@ -48,7 +48,6 @@ public:
 		else {
 			strData.clear();
 		}
-
 		for (int i = 0; i < nSize; ++i) {
 			sSum += strData[i] & 0xFF;
 		}
@@ -59,7 +58,7 @@ public:
 	/// </summary>
 	/// <param name="pData">包</param>
 	/// <param name="nSize">接收的信息长度</param>
-	CPacket(const BYTE* pData, size_t& nSize){
+	CPacket(const BYTE* pData, size_t& nSize) :CPacket() {
 		size_t i = 0;
 		//查找包头
 		for (; i < nSize; ++i) {
@@ -112,7 +111,7 @@ public:
 	}
 
 	const char* Data(std::string& strOut) const {
-		TRACE("给strOut的length：%d\r\n", nLength);
+		//TRACE("给strOut的length：%d\r\n", nLength);
 		strOut.resize(nLength + 6);
 		BYTE* pData = (BYTE*)strOut.c_str();
 		*(WORD*)pData = sHead; pData += 2;

@@ -390,10 +390,12 @@ void CRemoteClientDlg::OnEnChangeServerPort()
 LRESULT CRemoteClientDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 {
 	if (lParam == -1||lParam == -2) {
-
+		TRACE("error ack:%d\r\n", lParam);
+		return lParam;
 	}
 	else if (lParam == 1) {
-
+		TRACE("end ack:%d\r\n", lParam);
+		return lParam;
 	}
 	else{
 		if (wParam != NULL) {

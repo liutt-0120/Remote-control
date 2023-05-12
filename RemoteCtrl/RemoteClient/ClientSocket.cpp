@@ -158,9 +158,13 @@ void CClientSocket::ThreadFunc_Remake()
 	while (::GetMessage(&msg, NULL, 0, 0)) {
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
-		TRACE("Get Message:%08X \r\n", msg.message);
+		TRACE("接收到Message:%08X \r\n", msg.message);
 		if (m_mapFunc.find(msg.message) != m_mapFunc.end()) {
 			(this->*m_mapFunc[msg.message])(msg.message, msg.wParam, msg.lParam);
+			TRACE("这个消息处理完了:%08X \r\n", msg.message);
+		}
+		else {
+			TRACE("这个消息炸了:%08X \r\n");
 		}
 	}
 }
@@ -168,13 +172,12 @@ void CClientSocket::ThreadFunc_Remake()
 void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
 {
 	//TODO：定义一个消息的数据结构（数据、数据长度、模式），一个回调消息的数据结构（HWND MESSAGE）
-	if (wParam != NULL) {
-		PACKET_DATA data = *(PACKET_DATA*)wParam;
-		delete (PACKET_DATA*)wParam;	//体会一下为何要这么写。如果调用者传值的变量是个局部变量那用引用有可能造成野指针；因此对方最好用new存数据传值，此处确定复制到手后释放对面占用的堆内存
-	}
+	PACKET_DATA data = *(PACKET_DATA*)wParam;
+	delete (PACKET_DATA*)wParam;	//体会一下为何要这么写。如果调用者传值的变量是个局部变量那用引用有可能造成野指针；因此对方最好用new存数据传值，此处确定复制到手后释放对面占用的堆内存
 	HWND hWnd = (HWND)lParam;
 	if (InitSocket() == true) {
 		int ret = send(m_sockSrv, (char*)data.strData.c_str(), (int)data.strData.size(), 0);
+		TRACE("发给服务端的结果：%d\r\n", ret);
 		if (ret > 0) {
 			size_t index = 0;
 			std::string strBuffer;
@@ -220,7 +223,14 @@ bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool bAutoClose,W
 	UINT nMode = bAutoClose ? CSM_AUTOCLOSE : 0;
 	std::string strOut;
 	pack.Data(strOut);
-	return PostThreadMessage(m_wThreadId, WM_SEND_PACK, (WPARAM)new PACKET_DATA(strOut.c_str(), strOut.size(), nMode, wParam), (LPARAM)hWnd);
+	TRACE("%d 进了SendPacket,长度：%d,和校验：%d\r\n", pack.sCmd, pack.nLength, pack.sSum);
+	PACKET_DATA* pData = new PACKET_DATA(strOut.c_str(), strOut.size(), nMode, wParam);
+	bool ret = PostThreadMessage(m_wThreadId, WM_SEND_PACK, (WPARAM)pData, (LPARAM)hWnd);
+	if (ret == false) {
+		delete pData;
+		TRACE("post失败\r\n");
+	}
+	return ret;
 }
 
 /*

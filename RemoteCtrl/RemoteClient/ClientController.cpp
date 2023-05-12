@@ -26,7 +26,7 @@ CClientController* CClientController::GetInstance()
 
 int CClientController::InitController()
 {
-    m_hThread = (HANDLE)_beginthreadex(NULL, 0, ThreadEntry, this, 0, &m_wThreadId);
+    //m_hThread = (HANDLE)_beginthreadex(NULL, 0, ThreadEntry, this, 0, &m_wThreadId);
     m_statusDlg.Create(IDD_DOWNLOAD_DIALOG, &m_remoteDlg);
     return 0;
 }
@@ -50,7 +50,14 @@ int CClientController::Invoke(CWnd*& pMainWnd)
 
 bool CClientController::SendCommandPacket(HWND hWnd,int nCmd,bool bAutoClose,BYTE* pData,size_t nLength,WPARAM wParam)
 {
+    TRACE("cmd:%d %s start %lld \r\n", nCmd, __FUNCTION__, GetTickCount64());
+
     CClientSocket* pClient = CClientSocket::getInstance();
+    //if (pClient->InitSocket() == false) {
+    //    TRACE("连接服务端错误\r\n");
+    //    return false;
+    //}
+    TRACE("%d 进了SendCommandPacket\r\n", nCmd);
     bool ret = pClient->SendPacket(hWnd, CPacket(nCmd, pData, nLength), bAutoClose,wParam);
     return ret;
 }
@@ -109,6 +116,7 @@ void CClientController::DownloadEnd()
     m_remoteDlg.MessageBox(_T("下载完成"));
 }
 
+/*
 unsigned __stdcall CClientController::ThreadEntry(void* arg)
 {
     CClientController* thiz = (CClientController*)arg;
@@ -129,7 +137,6 @@ void CClientController::ThreadFunc()
             std::map<UINT, MSGFUNC>::iterator it = m_mapFunc.find(pmsg->msg.message);
             if (it != m_mapFunc.end()) {
                 pmsg->result = (this->*(it->second))(pmsg->msg.message, pmsg->msg.wParam, pmsg->msg.lParam);
-                //this->*/MSGFUNC/ func
             }
             else {
                 pmsg->result = -1;
@@ -140,12 +147,12 @@ void CClientController::ThreadFunc()
             std::map<UINT, MSGFUNC>::iterator it = m_mapFunc.find(msg.message);
             if (it != m_mapFunc.end()) {
                 (this->*(it->second))(msg.message, msg.wParam, msg.lParam);
-                //this->*/MSGFUNC/ func
             }
         }
 
     }
 }
+*/
 
 //LRESULT CClientController::OnSendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
 //{
@@ -227,28 +234,26 @@ void CClientController::ThreadEntryForWatchScreen(void* args)
 void CClientController::ThreadFuncForWatchScreen()
 {
     Sleep(50);
+    //控制发送频率 --- 避免子线程过于频繁调用，windows最好在30~50ms左右一次。
+    //如果网络带宽占比过大时还可增加到100~200ms，降低带宽消耗
+    ULONGLONG nTick = GetTickCount64();
     while (!m_isClosed) {	//防止线程在里面黑转不出来
         if (m_watchDlg.IsFull() == false) {	//若为false，更新数据到缓存
-            std::list<CPacket> packList;
-            int ret = SendCommandPacket(m_watchDlg.GetSafeHwnd(),6, true, NULL, 0);
-            //TODO：添加消息响应函数WM_SEND_PACK_ACK
-            //TODO：控制发送频率
-            if (ret == 6) {
-                if (CMyTool::Byte2Image(m_watchDlg.GetImage(), packList.front().strData) == 0) {
-                    m_watchDlg.SetImageStatus(true);
-                    TRACE("获取图片！ ret = %d\r\n", ret);
-                }
-                else {
-                    TRACE("获取图片失败！ ret = %d\r\n", ret);
-                }
+            if (GetTickCount64() - nTick < 200) {
+                Sleep(200 - (GetTickCount64() - nTick));
+            }
+            nTick = GetTickCount64();
+            int ret = SendCommandPacket(m_watchDlg.GetSafeHwnd(), 6, true, NULL, 0);
+            if (ret == 1) {
+                TRACE("获取图片！ ret = %d\r\n", ret);
             }
             else {
-                Sleep(1);
+                TRACE("获取图片失败！ ret = %d\r\n", ret);
             }
         }
         else {
             Sleep(1);
         }
-
+        //TRACE("thread end %d\r\n", m_isClosed);
     }
 }

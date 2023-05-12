@@ -208,6 +208,7 @@ protected:
 		if (m_sockCli != INVALID_SOCKET) {
 			closesocket(m_sockCli);
 			m_sockCli = INVALID_SOCKET;
+			TRACE("服务端断了客户端的连接\r\n");
 		}
 	}
 private:

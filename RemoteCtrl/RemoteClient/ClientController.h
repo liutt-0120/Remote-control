@@ -92,10 +92,10 @@ protected:
 		WaitForSingleObject(m_hThread, 100);
 	}
 
-	//线程开启 函数入口
-	static unsigned WINAPI ThreadEntry(void* arg);
-	//实际被线程触发的方法
-	void ThreadFunc();
+	////线程开启 函数入口
+	//static unsigned WINAPI ThreadEntry(void* arg);
+	////实际被线程触发的方法
+	//void ThreadFunc();
 
 	//LRESULT OnSendPack(UINT nMsg, WPARAM wParam, LPARAM lParam);
 	//LRESULT OnSendData(UINT nMsg, WPARAM wParam, LPARAM lParam);
