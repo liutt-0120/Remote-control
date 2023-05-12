@@ -65,8 +65,9 @@ public:
 		SOCKADDR_IN addrSrv;
 		memset(&addrSrv, 0, sizeof(addrSrv));
 		addrSrv.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");
-		TRACE("addr:%08x , ip:%08x\r\n", inet_addr("127.0.0.1"), m_nIP);	//addr:0100007f , ip:7f000001
+		//TRACE("addr:%08x , ip:%08x\r\n", inet_addr("127.0.0.1"), m_nIP);	//addr:0100007f , ip:7f000001
 		//addrSrv.sin_addr.S_un.S_addr = htonl(m_nIP);	//The htonl function converts a u_long from host to TCP/IP network byte order (which is big-endian).
+		TRACE("addr:%08x , ip:%08x\r\n", htonl(m_nIP), m_nIP);
 		addrSrv.sin_family = AF_INET;
 		addrSrv.sin_port = htons(m_nPort);
 		if (addrSrv.sin_addr.S_un.S_addr == INADDR_NONE) {

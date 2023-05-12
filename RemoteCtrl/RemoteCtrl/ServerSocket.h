@@ -200,7 +200,7 @@ protected:
 
 	bool Send(CPacket& pack) {		//为何传类类型的引用必须要加const？
 		if (m_sockCli == -1)return false;
-		TRACE("send file:%s\r\n", pack.strData.c_str());	
+		//TRACE("send file:%s\r\n", pack.strData.c_str());	
 		return send(m_sockCli, pack.Data(), pack.Size(), 0) > 0;
 	}
 

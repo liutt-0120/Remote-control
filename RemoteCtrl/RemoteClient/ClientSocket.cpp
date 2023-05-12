@@ -190,17 +190,21 @@ void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
 					size_t nLen = index;
 					CPacket pack((BYTE*)pBuffer, nLen);
 					if (nLen > 0) {
+						TRACE("ack pack %d to hWnd %08X %d %d\r\n", pack.sCmd, hWnd, index, nLen);
+						TRACE("%04X\r\n", *(WORD*)(pBuffer + nLen));
+						CMyTool::Dump((BYTE*)pBuffer, nLen);
 						::SendMessage(hWnd, WM_SEND_PACK_ACK, (WPARAM)new CPacket(pack), (LPARAM)data.wParam);	//look！这块就用了个new，所以被调用的方法那边要记得delete
 						if (data.nMode & CSM_AUTOCLOSE) {
 							CloseSocket();
 							return;
 						}
+						index -= nLen;
+						memmove(pBuffer, pBuffer + nLen, index);
 					}
-					index -= nLen;
-					memmove(pBuffer, pBuffer + index, nLen);
 				}
 				else {
 					//套接字被对方关闭、网络设备异常、或接收完毕
+					TRACE("recv failed,length:%d index:%d\r\n", length, index);
 					CloseSocket();
 					::SendMessage(hWnd, WM_SEND_PACK_ACK, NULL, 1);
 

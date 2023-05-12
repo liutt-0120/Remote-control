@@ -9,11 +9,8 @@
 
 class CPacket {
 public:
-	CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0) {
-		TRACE("shead:%d,nlength:%d,scmd:%d,ssum:%d\r\n", sHead, nLength, sCmd, sSum);
-	}
+	CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0) {	}
 	CPacket(const CPacket& pack) {
-		TRACE("CPacket nLength = %d\r\n", pack.nLength);
 		sHead = pack.sHead;
 		nLength = pack.nLength;
 		sCmd = pack.sCmd;
@@ -86,7 +83,7 @@ public:
 			//获取数据
 			strData.resize(nLength - 2 - 2);
 			memcpy((void*)strData.c_str(), pData + i, nLength - 4);	//将包内数据传给strData
-			TRACE("%s\r\n", strData.c_str());
+			TRACE("%s\r\n", strData.c_str() + 12);
 			i += nLength - 4;
 		}
 

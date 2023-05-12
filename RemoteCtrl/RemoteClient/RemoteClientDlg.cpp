@@ -232,28 +232,8 @@ void CRemoteClientDlg::LoadFileInfo()
 	DeleteTreeChildrenItem(hTreeSelected);	//重复点击时，删除子树重绘
 	m_list.DeleteAllItems();
 	CString strPath = GetPath(hTreeSelected);
-	std::list<CPacket> packLst;
 	CClientController* ctrl = CClientController::GetInstance();
 	int nCmd = ctrl->SendCommandPacket(GetSafeHwnd(), 2, false, (BYTE*)(LPCSTR)strPath, strPath.GetLength(),(WPARAM)hTreeSelected);
-	if (packLst.size() > 0) {
-		std::list<CPacket>::iterator it = packLst.begin();
-		for (; it != packLst.end(); it++) {
-			PFileInfo pInfo = (PFileInfo)(*it).strData.c_str();	//如果下面有货，接第一个文件/文件夹
-			if (pInfo->hasNext == false) continue;
-			if (pInfo->isDirectory) {
-				if (CString(pInfo->szFileName) == "." || CString(pInfo->szFileName) == "..") {
-					continue;
-				}
-				HTREEITEM hTmp = m_tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
-				m_tree.InsertItem("", hTmp, TVI_LAST);	//让目录看起来是有子节点的架势
-
-			}
-			else {
-				m_list.InsertItem(0, pInfo->szFileName);
-			}
-		}
-	}
-	ctrl->CloseSocket();
 }
 
 void CRemoteClientDlg::LoadFileCurrent()
@@ -434,6 +414,7 @@ LRESULT CRemoteClientDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 					}
 					HTREEITEM hTmp = m_tree.InsertItem(pInfo->szFileName, (HTREEITEM)lParam, TVI_LAST);	//为了避免连点快于消息处理造成误差，这块把HTREEITEM变量传过来
 					m_tree.InsertItem("", hTmp, TVI_LAST);	//让目录看起来是有子节点的架势
+					m_tree.Expand((HTREEITEM)lParam, TVE_EXPAND);	//默认扩展子树
 
 				}
 				else {
@@ -449,25 +430,31 @@ LRESULT CRemoteClientDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 				static LONGLONG length = 0,index = 0;
 				if (length == 0) {
 					length = *(long long*)packet.strData.c_str();
+					TRACE("ACK length:%lld,index:%lld\r\n", length, index);
 					if (length == 0) {
 						AfxMessageBox("文件长度为0或无法读取文件！");
 						CClientController::GetInstance()->DownloadEnd();
 					}
-					else if (length > 0 && index >= length) {
-						length = 0;
-						index = 0;
-						fclose((FILE*)lParam);
-						CClientController::GetInstance()->DownloadEnd();
+				}
+				else if (length > 0 && index >= length) {
+					length = 0;
+					index = 0;
+					TRACE("下载完成，关闭FILE\r\n");
+					fclose((FILE*)lParam);
+					CClientController::GetInstance()->DownloadEnd();
 
-					}
-					else {
-						FILE* pFile = (FILE*)lParam;
-						fwrite(packet.strData.c_str(), 1, packet.strData.size(), pFile);
-					}
+				}
+				else {
+					FILE* pFile = (FILE*)lParam;
+					TRACE("写入下载文件,size:%d\r\n", packet.strData.size());
+					fwrite(packet.strData.c_str(), 1, packet.strData.size(), pFile);
+					index += packet.strData.size();
+					TRACE("index = %d\r\n", index);
 				}
 			}
+			break;
 			case 9:
-				TRACE("删除文件成功\r\n");
+				TRACE("删除文件\r\n");
 				break;
 			case 95:
 				TRACE("连接测试成功\r\n");
