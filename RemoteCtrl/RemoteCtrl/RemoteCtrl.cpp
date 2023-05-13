@@ -100,8 +100,46 @@ void ChooseAutoInvoke() {
 
 }
 
+void ShowError() {
+    LPWSTR lpMessageBuf = NULL;
+    //strerror(errno);  //标准C语言库: 获取系统错误消息字符串
+    //windows错误一般用↓
+    FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER
+        , NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        lpMessageBuf, 0, NULL);
+    OutputDebugString(lpMessageBuf);
+    LocalFree(lpMessageBuf);    //sys创建的allocate,free一下
+}
+
+bool IsAdmin() {
+    HANDLE hToken = NULL;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken)) {
+        ShowError();
+        return false;
+    }
+    TOKEN_ELEVATION eve;
+    DWORD len = 0;
+    if (GetTokenInformation(hToken, TokenElevation, &eve, sizeof(eve), &len) == FALSE) {
+        //TOKEN_ELEVATION结构指示令牌是否具有提升的权限。有--非零值;否则为零值
+        ShowError();
+        return false;
+    }
+    CloseHandle(hToken);
+    if (len == sizeof(eve)) {
+        return eve.TokenIsElevated;
+    }
+    printf("length of tokeninformation is %d\r\n", len);
+    return false;
+}
+
 int main()
 {
+    if (IsAdmin()) {
+        OutputDebugString(L"current is run as administrator\r\n");
+    }
+    else {
+        OutputDebugString(L"current is run as normal user\r\n");
+    }
     int nRetCode = 0;
     HMODULE hModule = ::GetModuleHandle(nullptr);
     if (hModule != nullptr)
