@@ -16,6 +16,62 @@
 CWinApp theApp;
 
 /// <summary>
+/// 写注册表
+/// </summary>
+void WriteRegisterTable(const CString& strPath) {
+    //将程序mklink进系统文件夹
+    char sPath[MAX_PATH] = "";
+    char sSys[MAX_PATH] = "";
+    GetCurrentDirectoryA(MAX_PATH, sPath);  //获取当前路径
+    GetSystemDirectoryA(sSys, sizeof(sSys));  //获取系统路径: C:\\Windows\\system32 获取的32,后面mklink往64里放...
+    std::string strExe = "\\RemoteCtrl.exe";
+    //std::string strCmd = "mklink " + std::string(sSys) + strExe+ " " + std::string(sPath) + strExe;
+    std::string strCmd = "cmd /K mklink " + std::string(sSys) + strExe + " " + std::string(sPath) + strExe;
+    //cmd /K --- 执行完命令控制台不关闭
+    int ret = system(strCmd.c_str()); //控制台执行mklink命令
+    TRACE("ret = %d\r\n", ret);
+    //注册注册表
+    HKEY hKey = NULL;
+    CString strSubKey = _T("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run");
+    //ret = RegOpenKeyEx(HKEY_LOCAL_MACHINE, strSubKey, 0, KEY_WRITE, &hKey); //以写入形式打开注册表
+    ////                  系统定义的根部件   子件,具体到哪个路径
+    ret = RegOpenKeyEx(HKEY_LOCAL_MACHINE, strSubKey, 0, KEY_ALL_ACCESS | KEY_WOW64_64KEY, &hKey); //以写入形式打开注册表
+    //                                                                win10 64位没↑写不进去
+    if (ret != ERROR_SUCCESS) { //打开不成功，则：
+        RegCloseKey(hKey);
+        MessageBox(NULL, _T("设置自动开机启动失败，是否权限不足？"), _T("error"), MB_ICONERROR | MB_TOPMOST);
+        exit(0);
+    }
+    //使用REG_SZ：
+    //TCHAR sSysPath[MAX_PATH] = _T("");
+    //GetSystemDirectoryW(sSysPath, MAX_PATH);
+    //CString strPath = sSysPath + CString(_T("\\RemoteCtrl.exe"));
+    //ret = RegSetValueEx(hKey, _T("RemoteCtrl"), 0, REG_SZ, (BYTE*)(LPCTSTR)strPath, strPath.GetLength());
+    //使用REG_EXPAND_SZ：
+    //CString strPath = CString(_T("%SystemRoot%\\system32\\RemoteCtrl.exe"));
+    CString strPath = CString(_T("%SystemRoot%\\SysWOW64\\RemoteCtrl.exe"));    //可以调用者传,也可以自己写带扩展的
+    ret = RegSetValueEx(hKey, _T("RemoteCtrl"), 0, REG_EXPAND_SZ, (BYTE*)(LPCTSTR)strPath, strPath.GetLength() * sizeof(TCHAR));
+
+    if (ret != ERROR_SUCCESS) { //写入不成功，则：
+        RegCloseKey(hKey);
+        MessageBox(NULL, _T("设置自动开机启动失败，是否权限不足？"), _T("error"), MB_ICONERROR | MB_TOPMOST);
+        exit(0);
+    }
+    RegCloseKey(hKey);
+}
+
+void WriteStartupDir(const CString& strPath) {
+    CString strPath = _T("C:\\Users\\72703\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\RemoteCtrl.exe");
+    CString strCmd = GetCommandLine();
+    strCmd.Replace(_T("\""), _T("")); 
+    BOOL ret = CopyFile(strCmd, strPath, FALSE);
+    if (ret == FALSE) {
+        MessageBox(NULL, _T("复制文件失败,是否权限不足?\r\n"), _T("错误"), MB_ICONERROR | MB_TOPMOST);
+        ::exit(0);
+    }
+    //fopen\CFile\system(copy)\CopyFile\OpenFile都是可用来执行复制文件操作.
+}
+/// <summary>
 /// 设置开机自启动
 /// 开机启动的时候,程序的权限是跟随启动用户的
 /// 如果两者权限不一致,则会导致程序启动失败
@@ -24,8 +80,9 @@ CWinApp theApp;
 /// 可以将这些dll也复制到system32/SysWOW64,或者设置静态库运行
 /// </summary>
 void ChooseAutoInvoke() {
-    CString path = _T("C:\\Windows\\SysWOW64\\RemoteCtrl.exe");
+    //CString path = _T("C:\\Windows\\SysWOW64\\RemoteCtrl.exe");
     //                               ↑win10 64就这么骚,在SysWOW64里生成程序
+    CString path = _T("C:\\Users\\72703\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\RemoteCtrl.exe");
     if (PathFileExists(path)) {
         return;
     }
@@ -37,45 +94,8 @@ void ChooseAutoInvoke() {
     int ret = MessageBox(NULL, strInfo, _T("警告"), MB_YESNOCANCEL | MB_ICONWARNING | MB_TOPMOST);
                                                 //   是/否/取消     警告标志和声音    在最前面，提醒用户
     if (ret == IDYES) {
-        //将程序mklink进系统文件夹
-        char sPath[MAX_PATH] = "";
-        char sSys[MAX_PATH] = "";
-        GetCurrentDirectoryA(MAX_PATH, sPath);  //获取当前路径
-        GetSystemDirectoryA(sSys, sizeof(sSys));  //获取系统路径: C:\\Windows\\system32 获取的32,后面mklink往64里放...
-        std::string strExe = "\\RemoteCtrl.exe";
-        //std::string strCmd = "mklink " + std::string(sSys) + strExe+ " " + std::string(sPath) + strExe;
-        std::string strCmd = "cmd /K mklink " + std::string(sSys) + strExe + " " + std::string(sPath) + strExe;
-                            //cmd /K --- 执行完命令控制台不关闭
-        ret = system(strCmd.c_str()); //控制台执行mklink命令
-        TRACE("ret = %d\r\n", ret);
-        //注册注册表
-        HKEY hKey = NULL; 
-        CString strSubKey = _T("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run");
-        //ret = RegOpenKeyEx(HKEY_LOCAL_MACHINE, strSubKey, 0, KEY_WRITE, &hKey); //以写入形式打开注册表
-        ////                  系统定义的根部件   子件,具体到哪个路径
-        ret = RegOpenKeyEx(HKEY_LOCAL_MACHINE, strSubKey, 0, KEY_ALL_ACCESS | KEY_WOW64_64KEY, &hKey); //以写入形式打开注册表
-        //                                                                win10 64位没↑写不进去
-        if (ret != ERROR_SUCCESS) { //打开不成功，则：
-            RegCloseKey(hKey);
-            MessageBox(NULL, _T("设置自动开机启动失败，是否权限不足？"), _T("error"), MB_ICONERROR | MB_TOPMOST);
-            exit(0);
-        }
-        //使用REG_SZ：
-        //TCHAR sSysPath[MAX_PATH] = _T("");
-        //GetSystemDirectoryW(sSysPath, MAX_PATH);
-        //CString strPath = sSysPath + CString(_T("\\RemoteCtrl.exe"));
-        //ret = RegSetValueEx(hKey, _T("RemoteCtrl"), 0, REG_SZ, (BYTE*)(LPCTSTR)strPath, strPath.GetLength());
-        //使用REG_EXPAND_SZ：
-        //CString strPath = CString(_T("%SystemRoot%\\system32\\RemoteCtrl.exe"));
-        CString strPath = CString(_T("%SystemRoot%\\SysWOW64\\RemoteCtrl.exe"));
-        ret = RegSetValueEx(hKey, _T("RemoteCtrl"), 0, REG_EXPAND_SZ, (BYTE*)(LPCTSTR)strPath, strPath.GetLength() * sizeof(TCHAR));
-
-        if (ret != ERROR_SUCCESS) { //写入不成功，则：
-            RegCloseKey(hKey);
-            MessageBox(NULL, _T("设置自动开机启动失败，是否权限不足？"), _T("error"), MB_ICONERROR | MB_TOPMOST);
-            exit(0);
-        }
-        RegCloseKey(hKey);
+        //WriteRegisterTable(path);
+        WriteStartupDir(path);
     }
 
 }

@@ -204,8 +204,11 @@ private:
 	public:
 
 		~CGarbo() {
-			if (m_clientInstance != NULL)
+			if (m_clientInstance != NULL) {
+				CClientSocket* tmp = m_clientInstance;
+				m_clientInstance = NULL;
 				delete m_clientInstance;
+			}
 		}
 	};
 	static CGarbo garbo;
