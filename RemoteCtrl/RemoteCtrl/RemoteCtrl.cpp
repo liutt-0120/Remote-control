@@ -6,6 +6,7 @@
 #include "RemoteCtrl.h"
 #include "ServerSocket.h"
 #include "Command.h"
+#include <conio.h>
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -51,10 +52,105 @@ static bool ChooseAutoInvoke(const CString& strPath) {
     return true;
 }
 
+typedef struct IocpParam {
+    int nOperator; //操作
+    std::string strData;  //数据
+    _beginthread_proc_type cbFunc;  //回调
+    IocpParam() {
+        nOperator = -1;
+    }
+    IocpParam(int op, const char* sData, _beginthread_proc_type cb = NULL) {
+        nOperator = op;
+        strData = sData;
+        cbFunc = cb;
+    }
+}IOCP_PARAM;
 
+enum {
+    IocpListEmpty,
+    IocpListPush,
+    IocpListPop
+};
+
+void ThreadQueueEntry(HANDLE hIOCP) {
+    std::list<std::string> lstString;
+    DWORD dwTransferred = 0;
+    ULONG_PTR completionKey = 0;
+    OVERLAPPED* pOverlapped = NULL;
+    while (GetQueuedCompletionStatus(hIOCP, &dwTransferred, &completionKey, &pOverlapped, INFINITE)) {
+        if(dwTransferred == 0 || completionKey == NULL) {
+            printf("thread is prepare to exit!\r\n");
+            break;
+        }
+        IOCP_PARAM* pParam = (IOCP_PARAM*)completionKey;    //类似WPARAM用于传参,真正传值用异步数据反而不用这个,一般就用于传一个对象或一个this指针
+        if (pParam->nOperator == IocpListPush) {
+            lstString.push_back(pParam->strData);
+        }
+        else if (pParam->nOperator == IocpListPop) {
+            std::string* pStr = NULL;
+            if (lstString.size() > 0) {
+                pStr = new std::string(lstString.front());
+                lstString.pop_front();
+            }
+            if (pParam->cbFunc) {
+                pParam->cbFunc(pStr);
+            }
+        }
+        else if (pParam->nOperator == IocpListEmpty) {
+            lstString.clear();
+        }
+        delete pParam;
+    }
+
+    _endthread();
+}
+
+void CallBackFunc(void* arg) {
+    if (arg != NULL) {
+        std::string* pStr = (std::string*)arg;
+        printf("pop from list:%s\r\n", pStr->c_str());
+        delete pStr;
+    }
+    else {
+        printf("list is empty,no data!\r\n");
+    }
+}
 
 int main()
 {
+    if (!CMyTool::Init()) return 1;
+
+    HANDLE hIOCP = INVALID_HANDLE_VALUE;
+    hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, 1);    //创建完成端口,一参可与指定的句柄相关联
+                                                                            //四参NumberOfConcurrentThreads表示同时访问此完成端口的线程数
+                                                                            //此处我们创建完成端口用于维护队列,填1. 其他情况可填<=cpu核数×2
+    HANDLE hThread = (HANDLE)_beginthread(ThreadQueueEntry, 0, hIOCP);
+    printf("press any key to exit...\r\n");
+
+    ULONGLONG tick = GetTickCount64();
+    while (_kbhit() != 0) { //请求/实现分离
+        
+        if (GetTickCount64() - tick > 1300) {
+            PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPop, "hello world"), NULL);
+            tick = GetTickCount64();
+        }
+
+        if (GetTickCount64() - tick > 2000) {
+            PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPush, "hello world"), NULL);
+            tick = GetTickCount64();
+        }
+        Sleep(1);
+    }
+    if (hIOCP != NULL) {
+        PostQueuedCompletionStatus(hIOCP, 0, NULL, NULL);   //向完成端口强制投递一个状态,用二参或三参去传递
+        //完成端口在没数据进出的情况下就会休眠,因此要在结束时唤醒一下,保证线程被释放掉
+        WaitForSingleObject(hIOCP, INFINITE);    //此处有个漏洞:在post空值到线程关闭之间完成端口映射的句柄还有效,有其他线程还可以继续往里投递数据,就会造成内存泄漏
+    }
+    CloseHandle(hIOCP);
+    printf("exit done\r\n");
+    ::exit(0);
+
+    /*
     if (CMyTool::IsAdmin()) {
         //OutputDebugString(L"current is run as administrator\r\n");
         //MessageBox(NULL, _T("管理员"), _T("用户状态"), 0);
@@ -83,5 +179,6 @@ int main()
             return 1;
         }
     }
+    */
     return 0;
 }
