@@ -72,19 +72,21 @@ enum {
     IocpListPop
 };
 
-void ThreadQueueEntry(HANDLE hIOCP) {
+void ThreadQueueFunc(HANDLE hIOCP) {
     std::list<std::string> lstString;
     DWORD dwTransferred = 0;
     ULONG_PTR completionKey = 0;
     OVERLAPPED* pOverlapped = NULL;
+    int count = 0, count1 = 0;
     while (GetQueuedCompletionStatus(hIOCP, &dwTransferred, &completionKey, &pOverlapped, INFINITE)) {
-        if(dwTransferred == 0 || completionKey == NULL) {
+        if (dwTransferred == 0 || completionKey == NULL) {
             printf("thread is prepare to exit!\r\n");
             break;
         }
         IOCP_PARAM* pParam = (IOCP_PARAM*)completionKey;    //类似WPARAM用于传参,真正传值用异步数据反而不用这个,一般就用于传一个对象或一个this指针
         if (pParam->nOperator == IocpListPush) {
             lstString.push_back(pParam->strData);
+            ++count1;
         }
         else if (pParam->nOperator == IocpListPop) {
             std::string* pStr = NULL;
@@ -95,13 +97,18 @@ void ThreadQueueEntry(HANDLE hIOCP) {
             if (pParam->cbFunc) {
                 pParam->cbFunc(pStr);
             }
+            ++count;
         }
         else if (pParam->nOperator == IocpListEmpty) {
             lstString.clear();
         }
         delete pParam;
     }
+    printf("deal pop count:%d,push count:%d\r\n", count, count1);
+}
 
+void ThreadQueueEntry(HANDLE hIOCP) {
+    ThreadQueueFunc(hIOCP);
     _endthread();
 }
 
@@ -124,29 +131,39 @@ int main()
     hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, 1);    //创建完成端口,一参可与指定的句柄相关联
                                                                             //四参NumberOfConcurrentThreads表示同时访问此完成端口的线程数
                                                                             //此处我们创建完成端口用于维护队列,填1. 其他情况可填<=cpu核数×2
+    if (hIOCP == NULL||hIOCP == INVALID_HANDLE_VALUE) {
+        printf("create IOCP failed! %d\r\n", GetLastError());
+        return 1;
+    }
     HANDLE hThread = (HANDLE)_beginthread(ThreadQueueEntry, 0, hIOCP);
     printf("press any key to exit...\r\n");
 
     ULONGLONG tick = GetTickCount64();
-    while (_kbhit() != 0) { //请求/实现分离
+    ULONGLONG tick1 = GetTickCount64();
+    int count = 0, count1 = 0;      //记录投递数据的次数,与线程函数内记录的处理数据次数做对比,看是否有内存泄漏
+    while (_kbhit() == 0) { //请求/实现分离
         
         if (GetTickCount64() - tick > 1300) {
-            PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPop, "hello world"), NULL);
+            PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPop, "hello world", CallBackFunc), NULL);
             tick = GetTickCount64();
+            ++count;
         }
 
-        if (GetTickCount64() - tick > 2000) {
+        if (GetTickCount64() - tick1 > 2000) {
             PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPush, "hello world"), NULL);
-            tick = GetTickCount64();
+            tick1 = GetTickCount64();
+            ++count1;
         }
         Sleep(1);
     }
     if (hIOCP != NULL) {
         PostQueuedCompletionStatus(hIOCP, 0, NULL, NULL);   //向完成端口强制投递一个状态,用二参或三参去传递
         //完成端口在没数据进出的情况下就会休眠,因此要在结束时唤醒一下,保证线程被释放掉
-        WaitForSingleObject(hIOCP, INFINITE);    //此处有个漏洞:在post空值到线程关闭之间完成端口映射的句柄还有效,有其他线程还可以继续往里投递数据,就会造成内存泄漏
+        WaitForSingleObject(hThread, INFINITE);    //此处有个漏洞:在post空值到线程关闭之间完成端口映射的句柄还有效,有其他线程还可以继续往里投递数据,会造成内存泄漏
+                                                   //开发不会这么写代码,知道一下就得
     }
     CloseHandle(hIOCP);
+    printf("send pop count:%d,push count:%d\r\n", count, count1);
     printf("exit done\r\n");
     ::exit(0);
 
