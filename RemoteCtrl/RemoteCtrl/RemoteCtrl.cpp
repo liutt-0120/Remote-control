@@ -180,6 +180,37 @@ int main()
     printf("exit done! size: %d\r\n", lstStrings.Size());
     //::exit(0);    //直接::exit(0)导致MyQueue类的析构函数没被调用，造成内存泄漏（std::string内部有new）
     */
+
+    /*
+if (CMyTool::IsAdmin()) {
+    //OutputDebugString(L"current is run as administrator\r\n");
+    //MessageBox(NULL, _T("管理员"), _T("用户状态"), 0);
+    if (!CMyTool::Init()) return 1;
+    if (ChooseAutoInvoke(INVOKE_PATH)) {
+        CCommand cmd;
+        CServerSocket* pserver = CServerSocket::getInstance();
+        if (pserver != NULL) {
+            int ret = pserver->RunServer(CCommand::RunCommand, &cmd);
+            switch (ret) {
+            case -1:
+                MessageBox(NULL, _T("网络初始化异常，请检查网络状态"), _T("网络初始化失败"), MB_OK | MB_ICONERROR);
+                break;
+            case -2:
+                MessageBox(NULL, _T("多次无法正常接入用户，结束程序！"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
+                break;
+            }
+        }
+    }
+}
+else {
+    //OutputDebugString(L"current is run as normal user\r\n");
+    //MessageBox(NULL, _T("普通用户"), _T("用户状态"), 0);
+    if (!CMyTool::RunAsAdmin()) {
+        CMyTool::ShowError();
+        return 1;
+    }
+}
+*/
     return 0;
 }
 
