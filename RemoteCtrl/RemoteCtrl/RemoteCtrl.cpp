@@ -7,6 +7,7 @@
 #include "ServerSocket.h"
 #include "Command.h"
 #include <conio.h>
+#include "MyQueue.h"
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -123,79 +124,110 @@ void CallBackFunc(void* arg) {
     }
 }
 
-int main()
-{
-    if (!CMyTool::Init()) return 1;
-
-    HANDLE hIOCP = INVALID_HANDLE_VALUE;
-    hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, 1);    //创建完成端口,一参可与指定的句柄相关联
-                                                                            //四参NumberOfConcurrentThreads表示同时访问此完成端口的线程数
-                                                                            //此处我们创建完成端口用于维护队列,填1. 其他情况可填<=cpu核数×2
-    if (hIOCP == NULL||hIOCP == INVALID_HANDLE_VALUE) {
-        printf("create IOCP failed! %d\r\n", GetLastError());
-        return 1;
-    }
-    HANDLE hThread = (HANDLE)_beginthread(ThreadQueueEntry, 0, hIOCP);
-    printf("press any key to exit...\r\n");
-
-    ULONGLONG tick = GetTickCount64();
-    ULONGLONG tick1 = GetTickCount64();
-    int count = 0, count1 = 0;      //记录投递数据的次数,与线程函数内记录的处理数据次数做对比,看是否有内存泄漏
-    while (_kbhit() == 0) { //请求/实现分离
-        
-        if (GetTickCount64() - tick > 1300) {
-            PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPop, "hello world", CallBackFunc), NULL);
+/// <summary>
+/// 压力测试
+/// 循环调用测试是否会发生内存泄漏
+/// 多次运行是否会出现bug
+/// </summary>
+void Test() {
+    CMyQueue<std::string> lstStrings;
+    ULONGLONG tick = GetTickCount64(), tick1 = GetTickCount64(), total = GetTickCount64();
+    while (GetTickCount64()-total<=1000) {
+        if (GetTickCount64() - tick > 13) {
+            lstStrings.PushBack("hello world");
             tick = GetTickCount64();
-            ++count;
         }
 
-        if (GetTickCount64() - tick1 > 2000) {
-            PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPush, "hello world"), NULL);
+        if (GetTickCount64() - tick1 > 20) {
+            std::string str;
+            lstStrings.PopFront(str);
             tick1 = GetTickCount64();
-            ++count1;
+            printf("pop from queue:%s\r\n", str.c_str());
         }
         Sleep(1);
     }
-    if (hIOCP != NULL) {
-        PostQueuedCompletionStatus(hIOCP, 0, NULL, NULL);   //向完成端口强制投递一个状态,用二参或三参去传递
-        //完成端口在没数据进出的情况下就会休眠,因此要在结束时唤醒一下,保证线程被释放掉
-        WaitForSingleObject(hThread, INFINITE);    //此处有个漏洞:在post空值到线程关闭之间完成端口映射的句柄还有效,有其他线程还可以继续往里投递数据,会造成内存泄漏
-                                                   //开发不会这么写代码,知道一下就得
+    printf("exit done! size: %d\r\n", lstStrings.Size());
+    lstStrings.Clear();
+    printf("exit done! size: %d\r\n", lstStrings.Size());
+    //::exit(0);    //直接::exit(0)导致MyQueue类的析构函数没被调用，造成内存泄漏（std::string内部有new）
+}
+int main()
+{
+    if (!CMyTool::Init()) return 1;
+    for (int i = 0; i < 100; i++) {
+        Test();
     }
-    CloseHandle(hIOCP);
-    printf("send pop count:%d,push count:%d\r\n", count, count1);
-    printf("exit done\r\n");
-    ::exit(0);
-
     /*
-    if (CMyTool::IsAdmin()) {
-        //OutputDebugString(L"current is run as administrator\r\n");
-        //MessageBox(NULL, _T("管理员"), _T("用户状态"), 0);
-        if (!CMyTool::Init()) return 1;
-        if (ChooseAutoInvoke(INVOKE_PATH)) {
-            CCommand cmd;
-            CServerSocket* pserver = CServerSocket::getInstance();
-            if (pserver != NULL) {
-                int ret = pserver->RunServer(CCommand::RunCommand, &cmd);
-                switch (ret) {
-                case -1:
-                    MessageBox(NULL, _T("网络初始化异常，请检查网络状态"), _T("网络初始化失败"), MB_OK | MB_ICONERROR);
-                    break;
-                case -2:
-                    MessageBox(NULL, _T("多次无法正常接入用户，结束程序！"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
-                    break;
-                }
-            }
+    CMyQueue<std::string> lstStrings;
+    printf("press any key to exit...\r\n");
+    ULONGLONG tick = GetTickCount64(), tick1 = GetTickCount64();
+    while (_kbhit() == 0) { 
+        if (GetTickCount64() - tick > 1300) {
+            lstStrings.PushBack("hello world");
+            tick = GetTickCount64();
         }
-    }
-    else {
-        //OutputDebugString(L"current is run as normal user\r\n");
-        //MessageBox(NULL, _T("普通用户"), _T("用户状态"), 0);
-        if (!CMyTool::RunAsAdmin()) {
-            CMyTool::ShowError();
-            return 1;
+
+        if (GetTickCount64() - tick1 > 2000) {
+            std::string str;
+            lstStrings.PopFront(str);
+            tick1 = GetTickCount64();
+            printf("pop from queue:%s\r\n", str.c_str());
         }
+        Sleep(1);
     }
+    printf("exit done! size: %d\r\n", lstStrings.Size());
+    lstStrings.Clear();
+    printf("exit done! size: %d\r\n", lstStrings.Size());
+    //::exit(0);    //直接::exit(0)导致MyQueue类的析构函数没被调用，造成内存泄漏（std::string内部有new）
     */
     return 0;
 }
+
+
+//完成端口的逻辑架构理解：
+//int main()
+//{
+//    if (!CMyTool::Init()) return 1;
+//
+//    HANDLE hIOCP = INVALID_HANDLE_VALUE;
+//    hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, 1);    //创建完成端口,一参可与指定的句柄相关联
+//                                                                            //四参NumberOfConcurrentThreads表示同时访问此完成端口的线程数
+//                                                                            //此处我们创建完成端口用于维护队列,填1. 其他情况可填<=cpu核数×2
+//    if (hIOCP == NULL || hIOCP == INVALID_HANDLE_VALUE) {
+//        printf("create IOCP failed! %d\r\n", GetLastError());
+//        return 1;
+//    }
+//    HANDLE hThread = (HANDLE)_beginthread(ThreadQueueEntry, 0, hIOCP);
+//    printf("press any key to exit...\r\n");
+//
+//    ULONGLONG tick = GetTickCount64();
+//    ULONGLONG tick1 = GetTickCount64();
+//    int count = 0, count1 = 0;      //记录投递数据的次数,与线程函数内记录的处理数据次数做对比,看是否有内存泄漏
+//    while (_kbhit() == 0) { //请求/实现分离
+//
+//        if (GetTickCount64() - tick > 1300) {
+//            PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPop, "hello world", CallBackFunc), NULL);
+//            tick = GetTickCount64();
+//            ++count;
+//        }
+//
+//        if (GetTickCount64() - tick1 > 2000) {
+//            PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPush, "hello world"), NULL);
+//            tick1 = GetTickCount64();
+//            ++count1;
+//        }
+//        Sleep(1);
+//    }
+//    if (hIOCP != NULL) {
+//        PostQueuedCompletionStatus(hIOCP, 0, NULL, NULL);   //向完成端口强制投递一个状态,用二参或三参去传递
+//        //完成端口在没数据进出的情况下就会休眠,因此要在结束时唤醒一下,保证线程被释放掉
+//        WaitForSingleObject(hThread, INFINITE);    //此处有个漏洞:在post空值到线程关闭之间完成端口映射的句柄还有效,有其他线程还可以继续往里投递数据,会造成内存泄漏
+//                                                   //开发不会这么写代码,知道一下就得
+//    }
+//    CloseHandle(hIOCP);
+//    printf("send pop count:%d,push count:%d\r\n", count, count1);
+//    printf("exit done\r\n");
+//    ::exit(0);
+//
+//    return 0;
+//}
