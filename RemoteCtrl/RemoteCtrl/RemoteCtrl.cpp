@@ -8,6 +8,8 @@
 #include "Command.h"
 #include <conio.h>
 #include "MyQueue.h"
+#include <MSWSock.h>
+#include "MyServer.h"
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -53,133 +55,10 @@ static bool ChooseAutoInvoke(const CString& strPath) {
     return true;
 }
 
-typedef struct IocpParam {
-    int nOperator; //操作
-    std::string strData;  //数据
-    _beginthread_proc_type cbFunc;  //回调
-    IocpParam() {
-        nOperator = -1;
-    }
-    IocpParam(int op, const char* sData, _beginthread_proc_type cb = NULL) {
-        nOperator = op;
-        strData = sData;
-        cbFunc = cb;
-    }
-}IOCP_PARAM;
 
-enum {
-    IocpListEmpty,
-    IocpListPush,
-    IocpListPop
-};
-
-void ThreadQueueFunc(HANDLE hIOCP) {
-    std::list<std::string> lstString;
-    DWORD dwTransferred = 0;
-    ULONG_PTR completionKey = 0;
-    OVERLAPPED* pOverlapped = NULL;
-    int count = 0, count1 = 0;
-    while (GetQueuedCompletionStatus(hIOCP, &dwTransferred, &completionKey, &pOverlapped, INFINITE)) {
-        if (dwTransferred == 0 || completionKey == NULL) {
-            printf("thread is prepare to exit!\r\n");
-            break;
-        }
-        IOCP_PARAM* pParam = (IOCP_PARAM*)completionKey;    //类似WPARAM用于传参,真正传值用异步数据反而不用这个,一般就用于传一个对象或一个this指针
-        if (pParam->nOperator == IocpListPush) {
-            lstString.push_back(pParam->strData);
-            ++count1;
-        }
-        else if (pParam->nOperator == IocpListPop) {
-            std::string* pStr = NULL;
-            if (lstString.size() > 0) {
-                pStr = new std::string(lstString.front());
-                lstString.pop_front();
-            }
-            if (pParam->cbFunc) {
-                pParam->cbFunc(pStr);
-            }
-            ++count;
-        }
-        else if (pParam->nOperator == IocpListEmpty) {
-            lstString.clear();
-        }
-        delete pParam;
-    }
-    printf("deal pop count:%d,push count:%d\r\n", count, count1);
-}
-
-void ThreadQueueEntry(HANDLE hIOCP) {
-    ThreadQueueFunc(hIOCP);
-    _endthread();
-}
-
-void CallBackFunc(void* arg) {
-    if (arg != NULL) {
-        std::string* pStr = (std::string*)arg;
-        printf("pop from list:%s\r\n", pStr->c_str());
-        delete pStr;
-    }
-    else {
-        printf("list is empty,no data!\r\n");
-    }
-}
-
-/// <summary>
-/// 压力测试
-/// 循环调用测试是否会发生内存泄漏
-/// 多次运行是否会出现bug
-/// </summary>
-void Test() {
-    CMyQueue<std::string> lstStrings;
-    ULONGLONG tick = GetTickCount64(), tick1 = GetTickCount64(), total = GetTickCount64();
-    while (GetTickCount64()-total<=1000) {
-        if (GetTickCount64() - tick > 13) {
-            lstStrings.PushBack("hello world");
-            tick = GetTickCount64();
-        }
-
-        if (GetTickCount64() - tick1 > 20) {
-            std::string str;
-            lstStrings.PopFront(str);
-            tick1 = GetTickCount64();
-            printf("pop from queue:%s\r\n", str.c_str());
-        }
-        Sleep(1);
-    }
-    printf("exit done! size: %d\r\n", lstStrings.Size());
-    lstStrings.Clear();
-    printf("exit done! size: %d\r\n", lstStrings.Size());
-    //::exit(0);    //直接::exit(0)导致MyQueue类的析构函数没被调用，造成内存泄漏（std::string内部有new）
-}
 int main()
 {
     if (!CMyTool::Init()) return 1;
-    for (int i = 0; i < 100; i++) {
-        Test();
-    }
-    /*
-    CMyQueue<std::string> lstStrings;
-    printf("press any key to exit...\r\n");
-    ULONGLONG tick = GetTickCount64(), tick1 = GetTickCount64();
-    while (_kbhit() == 0) { 
-        if (GetTickCount64() - tick > 1300) {
-            lstStrings.PushBack("hello world");
-            tick = GetTickCount64();
-        }
-
-        if (GetTickCount64() - tick1 > 2000) {
-            std::string str;
-            lstStrings.PopFront(str);
-            tick1 = GetTickCount64();
-            printf("pop from queue:%s\r\n", str.c_str());
-        }
-        Sleep(1);
-    }
-    printf("exit done! size: %d\r\n", lstStrings.Size());
-    lstStrings.Clear();
-    printf("exit done! size: %d\r\n", lstStrings.Size());
-    //::exit(0);    //直接::exit(0)导致MyQueue类的析构函数没被调用，造成内存泄漏（std::string内部有new）
-    */
 
     /*
 if (CMyTool::IsAdmin()) {
@@ -214,51 +93,21 @@ else {
     return 0;
 }
 
-
-//完成端口的逻辑架构理解：
-//int main()
-//{
-//    if (!CMyTool::Init()) return 1;
-//
-//    HANDLE hIOCP = INVALID_HANDLE_VALUE;
-//    hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, 1);    //创建完成端口,一参可与指定的句柄相关联
-//                                                                            //四参NumberOfConcurrentThreads表示同时访问此完成端口的线程数
-//                                                                            //此处我们创建完成端口用于维护队列,填1. 其他情况可填<=cpu核数×2
-//    if (hIOCP == NULL || hIOCP == INVALID_HANDLE_VALUE) {
-//        printf("create IOCP failed! %d\r\n", GetLastError());
-//        return 1;
-//    }
-//    HANDLE hThread = (HANDLE)_beginthread(ThreadQueueEntry, 0, hIOCP);
-//    printf("press any key to exit...\r\n");
-//
-//    ULONGLONG tick = GetTickCount64();
-//    ULONGLONG tick1 = GetTickCount64();
-//    int count = 0, count1 = 0;      //记录投递数据的次数,与线程函数内记录的处理数据次数做对比,看是否有内存泄漏
-//    while (_kbhit() == 0) { //请求/实现分离
-//
-//        if (GetTickCount64() - tick > 1300) {
-//            PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPop, "hello world", CallBackFunc), NULL);
-//            tick = GetTickCount64();
-//            ++count;
-//        }
-//
-//        if (GetTickCount64() - tick1 > 2000) {
-//            PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPush, "hello world"), NULL);
-//            tick1 = GetTickCount64();
-//            ++count1;
-//        }
-//        Sleep(1);
-//    }
-//    if (hIOCP != NULL) {
-//        PostQueuedCompletionStatus(hIOCP, 0, NULL, NULL);   //向完成端口强制投递一个状态,用二参或三参去传递
-//        //完成端口在没数据进出的情况下就会休眠,因此要在结束时唤醒一下,保证线程被释放掉
-//        WaitForSingleObject(hThread, INFINITE);    //此处有个漏洞:在post空值到线程关闭之间完成端口映射的句柄还有效,有其他线程还可以继续往里投递数据,会造成内存泄漏
-//                                                   //开发不会这么写代码,知道一下就得
-//    }
-//    CloseHandle(hIOCP);
-//    printf("send pop count:%d,push count:%d\r\n", count, count1);
-//    printf("exit done\r\n");
-//    ::exit(0);
-//
-//    return 0;
-//}
+/*
+class COverlapped {
+public:
+    OVERLAPPED m_overlapped;
+    DWORD m_operator;       //操作
+    char m_buffer[4096];    //传值
+    COverlapped() {
+        m_operator = 0;
+        memset(&m_overlapped, 0, sizeof(m_overlapped));
+        memset(m_buffer, 0, sizeof(m_buffer));
+    }
+};
+*/
+void iocp() {
+    CMyServer server;
+    server.StartService();
+    getchar();
+}

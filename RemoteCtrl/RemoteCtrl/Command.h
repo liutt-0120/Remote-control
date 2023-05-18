@@ -11,7 +11,7 @@
 #include "LockDialog.h"
 
 
-#pragma warning(disable:4966);  //
+#pragma warning(disable:4966)  //
 
 class CCommand
 {
