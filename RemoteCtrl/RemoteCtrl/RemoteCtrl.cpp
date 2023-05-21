@@ -54,12 +54,27 @@ static bool ChooseAutoInvoke(const CString& strPath) {
     }
     return true;
 }
-
-
+bool InitSockEnv() {
+    WSADATA data;
+    if (WSAStartup(MAKEWORD(2, 0), &data) != 0) {
+        return FALSE;
+    }
+    return TRUE;
+}
+void iocp() {
+    bool ret = InitSockEnv();
+    if (!ret) {
+        TRACE("初始化环境失败\r\n");
+        ::exit(0);
+    }
+    CMyServer server;
+    server.StartService();
+    getchar();
+}
 int main()
 {
     if (!CMyTool::Init()) return 1;
-
+    iocp();
     /*
 if (CMyTool::IsAdmin()) {
     //OutputDebugString(L"current is run as administrator\r\n");
@@ -106,8 +121,4 @@ public:
     }
 };
 */
-void iocp() {
-    CMyServer server;
-    server.StartService();
-    getchar();
-}
+

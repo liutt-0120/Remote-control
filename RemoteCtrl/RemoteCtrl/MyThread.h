@@ -3,12 +3,16 @@
 #include <atomic>
 #include <vector>
 #include <mutex>
+
+
 /*
 * 由用户自定义添加操作
 * 想增加什么执行内容, 继承ThreadFuncBase类
 */
 class CThreadFuncBase{};
 typedef int (CThreadFuncBase::* FUNCTYPE)();
+
+
 /*
 * 将要执行的内容完全脱离线程
 * 创建ThreadWorker实例, 将实例更新进线程执行
@@ -17,10 +21,13 @@ class CThreadWorker {
 public: 
 	CThreadWorker():thiz(NULL), func(NULL){}
 	CThreadWorker(CThreadFuncBase* obj, FUNCTYPE f):thiz(obj),func(f) {}
+
+	//拷贝构造
 	CThreadWorker(const CThreadWorker& worker){
 		thiz = worker.thiz;
 		func = worker.func;
 	}
+	//拷贝赋值
 	CThreadWorker& operator=(const CThreadWorker& worker){
 		if (this != &worker) {
 			thiz = worker.thiz;
@@ -28,17 +35,21 @@ public:
 		}
 		return *this;
 	}
+	//调用重载
 	int operator()() {
 		if (IsValid()) {
 			return (thiz->*func)();
 		}
 		return -1;
 	}
+	//内容是否有效
 	bool IsValid() const{
 		return (thiz != NULL) && (func != NULL);
 	}
 private:
+	//自定义操作
 	CThreadFuncBase* thiz;
+	//自定义操作的成员函数
 	FUNCTYPE func;
 
 };
@@ -49,6 +60,7 @@ class CMyThread
 public:
 	CMyThread(){
 		m_hThread = NULL;
+		m_bStatus = false;
 	}
 	~CMyThread() {
 		Stop();
@@ -66,9 +78,11 @@ public:
 	bool Stop() {
 		if (m_bStatus == false) return true;
 		m_bStatus = false;
-		bool ret = WaitForSingleObject(m_hThread, INFINITE) == WAIT_OBJECT_0;
+		DWORD ret = WaitForSingleObject(m_hThread, INFINITE);
+		if (ret == WAIT_TIMEOUT) //线程这块这块查查这几个宏是干嘛的,这么做有什么意义
+			TerminateThread(m_hThread, -1);	
 		UpdateWorker();
-		return ret;
+		return ret == WAIT_OBJECT_0;
 	}
 
 	// 监控线程是否有效
@@ -77,37 +91,54 @@ public:
 		return WaitForSingleObject(m_hThread, 0) == WAIT_TIMEOUT;
 	}
 
+	//更新线程内的工作
 	void UpdateWorker(const ::CThreadWorker& worker = ::CThreadWorker()) {
+		if (m_worker.load() != NULL && m_worker.load() != &worker) {
+			::CThreadWorker* pWorker = m_worker.load();
+			m_worker.store(NULL);
+			delete pWorker;
+		}
+		//感觉这块逻辑有问题
+		if (m_worker.load() == &worker) return;
 		if (!worker.IsValid()) {
 			m_worker.store(NULL);
 			return;
 		}
-		if (m_worker.load() != NULL) {
-			::CThreadWorker* pWorker = m_worker.load();
-			m_worker.store(NULL);
-			delete pWorker;	//智能指针还用delete?
-		}
+		//不为NULL说明线程中的工作还在继续
+
 		m_worker.store(new ::CThreadWorker(worker));
 	}
 
 	//线程是否空闲, m_worker里是空实例就为空闲. true为空闲,false为忙碌
 	bool IsIdle() {
+		if (m_worker.load() == NULL) return true;
 		return !m_worker.load()->IsValid();
 	}
 private:
+
+	//线程函数
 	void ThreadWorker() {
 		while (m_bStatus) {
+
+			//没活干空转
+			if (m_worker.load() == NULL) {
+				Sleep(1);
+				continue;
+			}
 			::CThreadWorker worker = *m_worker.load();
 			if (worker.IsValid()) {			//若worker为空实例就空转. 中途暂时不需要该线程可挂空, 不用让线程结束
-				int ret = worker();
-				if (ret != 0) {
-					CString str;
-					str.Format(_T("thread found warning code %d\r\n"), ret);
-					OutputDebugString(str);
+				if (WaitForSingleObject(m_hThread, 0) == WAIT_TIMEOUT) {
+					int ret = worker();			//循环调用CThreadFuncBase派生类的成员函数
+					if (ret != 0) {
+						CString str;
+						str.Format(_T("thread found warning code %d\r\n"), ret);
+						OutputDebugString(str);
+					}
+					if (ret < 0) {
+						m_worker.store(NULL);
+					}
 				}
-				if (ret < 0) {
-					m_worker.store(NULL);
-				}
+
 			}
 			else {
 				Sleep(1);
@@ -160,6 +191,8 @@ public:
 	void Stop() {
 		for (size_t i = 0; i < m_threads.size(); i++) {
 			m_threads[i]->Stop();
+			delete m_threads[i];
+			m_threads[i] = NULL;
 		}
 	}
 
