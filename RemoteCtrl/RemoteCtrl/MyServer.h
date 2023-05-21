@@ -100,6 +100,8 @@ public:
     int Recv();
     int Send(void* buffer,size_t size);
     int SendData(std::vector<char>& data);
+    LPWSAOVERLAPPED GetRecvOverlappedPtr();
+    LPWSAOVERLAPPED GetSendOverlappedPtr();
 private:
     SOCKET m_sockCli;
     DWORD m_received;
@@ -178,23 +180,16 @@ public:
     //
     bool StartService();
 
-    bool NewAccept() {
-        PCLIENT pClient(new CClient());
-        pClient->SetOverlapped(pClient);
-        m_client.insert(std::pair<SOCKET, PCLIENT>(pClient->GetClientSocket(), pClient));
-        if (!AcceptEx(m_sockSrv, pClient->GetClientSocket(),pClient->GetPBuffer(), 0, sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16, pClient->GetPReceive(), pClient->GetPOverlapped())) {
-            closesocket(m_sockSrv);
-            m_sockSrv = INVALID_SOCKET;
-            m_hIOCP = INVALID_HANDLE_VALUE;
-            return false;
-        }
-        return true;
-    }
+    bool NewAccept();
 
-
+    void BindNewSocket(SOCKET s);
 private:
     //
     void CreateSocket() {
+        WSADATA WSAData;
+        if (WSAStartup(MAKEWORD(2, 0), &WSAData) != 0) {
+            return;
+        }
         m_sockSrv = WSASocket(PF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
         int opt = 1;
         setsockopt(m_sockSrv, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));

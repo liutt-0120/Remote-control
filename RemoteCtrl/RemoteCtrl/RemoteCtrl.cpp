@@ -54,19 +54,9 @@ static bool ChooseAutoInvoke(const CString& strPath) {
     }
     return true;
 }
-bool InitSockEnv() {
-    WSADATA data;
-    if (WSAStartup(MAKEWORD(2, 0), &data) != 0) {
-        return FALSE;
-    }
-    return TRUE;
-}
+
 void iocp() {
-    bool ret = InitSockEnv();
-    if (!ret) {
-        TRACE("初始化环境失败\r\n");
-        ::exit(0);
-    }
+
     CMyServer server;
     server.StartService();
     getchar();

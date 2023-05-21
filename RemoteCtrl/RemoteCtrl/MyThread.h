@@ -20,7 +20,7 @@ typedef int (CThreadFuncBase::* FUNCTYPE)();
 class CThreadWorker {
 public: 
 	CThreadWorker():thiz(NULL), func(NULL){}
-	CThreadWorker(CThreadFuncBase* obj, FUNCTYPE f):thiz(obj),func(f) {}
+	CThreadWorker(void* obj, FUNCTYPE f):thiz((CThreadFuncBase*)obj),func(f) {}
 
 	//øΩ±¥ππ‘Ï
 	CThreadWorker(const CThreadWorker& worker){
@@ -135,7 +135,9 @@ private:
 						OutputDebugString(str);
 					}
 					if (ret < 0) {
+						::CThreadWorker* pWorker = m_worker.load();
 						m_worker.store(NULL);
+						delete pWorker;
 					}
 				}
 
